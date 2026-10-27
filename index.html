@@ -283,6 +283,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* CeDes letter reader: rule-based stand-in for the language model step. */
@@ -487,11 +488,11 @@ en: {
   pYourMark:'Your trade mark', pWork:'Your work', pTheir:'Their business', pEvidence:'Evidence', pTone:'Tone', pShots:'{n} screenshot(s)',
   /* received path (from earlier prototype) */
   uploadAsk:'Please upload the letter. I’ll read it and pull out the key details.',
-  dropT:'Upload the letter', dropH:'Word (.docx) or text file. Drag it here or choose a file.',
+  dropT:'Upload the letter', dropH:'PDF (selectable text), Word (.docx) or text (.txt). Drag it here or choose a file.',
   useDemo:'Use the demo letter', cantUpload:'I can’t upload it',
   uploaded:'Uploaded: {name}', reading:'Reading your letter…',
   readFail:'I couldn’t find the key details in that file. This prototype is set up for the demo letter. You can try again, use the demo letter, or type the details in.',
-  pdfMsg:'This prototype reads Word (.docx) and text files. Please upload the Word version.',
+  pdfMsg:'This PDF appears to contain no selectable text. Scanned/image-only PDFs are not yet supported. Try a text-based PDF or Word file, or enter the details manually.',
   manualAsk:'No problem. Tell me what the letter says and I’ll organise it.',
   fSender:'Who sent the letter?', fClient:'On whose behalf?', fTheirMark:'Their trade mark', fNumber2:'Registration number (if given)', fSign:'The name you use', fDeadline:'Reply date in the letter',
   manualSent:'I’ve entered the details.',
@@ -635,11 +636,11 @@ zh: {
   bye:'感谢使用引导支持工具。祝一切顺利。',
   pYourMark:'您的商标', pWork:'您的作品', pTheir:'对方企业', pEvidence:'证据', pTone:'语气', pShots:'{n} 张截图',
   uploadAsk:'请上传信件。我会阅读并提取关键信息。',
-  dropT:'上传信件', dropH:'Word (.docx) 或文本文件。拖放到此处或选择文件。',
+  dropT:'上传信件', dropH:'支持含可选文字的 PDF、Word (.docx) 或文本 (.txt)。可拖放文件或点击选择。',
   useDemo:'使用演示信件', cantUpload:'我无法上传',
   uploaded:'已上传：{name}', reading:'正在阅读您的信件…',
   readFail:'我未能在该文件中找到关键信息。本原型针对演示信件设计。您可以重试、使用演示信件，或手动输入信息。',
-  pdfMsg:'本原型可读取 Word (.docx) 和文本文件，请上传 Word 版本。',
+  pdfMsg:'无法提取此 PDF 中的文字。暂不支持扫描件或纯图片 PDF。请尝试含可选文字的 PDF、Word 文件，或手动输入信息。',
   manualAsk:'没关系。请告诉我信件内容，我来帮您整理。',
   fSender:'发件人是谁？', fClient:'代表谁发出？', fTheirMark:'对方的商标', fNumber2:'注册号（如有）', fSign:'您使用的名称', fDeadline:'信中的回复期限',
   manualSent:'我已填写信息。',
@@ -1186,8 +1187,28 @@ async function handleFile(file){
   if (name.endsWith('.pdf')){ await say({ k:'pdfMsg' }); S.step = 'upload'; render(); return; }
   try {
     let text = '';
-    if (name.endsWith('.docx')){ if (!window.mammoth) throw new Error('reader not loaded'); text = (await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value; }
-    else text = await file.text();
+    if (name.endsWith('.pdf')){
+      if (!window.pdfjsLib) throw new Error('PDF reader unavailable');
+      if (file.size > 15 * 1024 * 1024) throw new Error('PDF file too large');
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      try {
+        if (pdf.numPages > 50) throw new Error('PDF exceeds 50-page limit');
+        const pages = [];
+        for (let p = 1; p <= pdf.numPages; p++){
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          pages.push(content.items.map(item => (item.str || '') + (item.hasEOL ? '\\n' : ' ')).join(''));
+          page.cleanup();
+        }
+        text = pages.join('\\n\\n');
+      } finally { await pdf.destroy(); }
+      if (!text.trim()){ await say({ k:'pdfMsg' }); S.step = 'upload'; render(); return; }
+    } else if (name.endsWith('.docx')){
+      if (!window.mammoth) throw new Error('reader not loaded');
+      text = (await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+    } else if (name.endsWith('.txt')) text = await file.text();
+    else throw new Error('Unsupported file type');
     processText(text);
   } catch(e){ await say({ k:'readFail' }); S.step = 'upload'; render(); }
 }
