@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Guided Support Tool prototype: understand or prepare a cease-and-desist letter. Education only, not legal advice.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2232%22%20fill%3D%22%230D5B5B%22/%3E%3Ctext%20x%3D%2232%22%20y%3D%2243%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%2232%22%20font-weight%3D%22700%22%20fill%3D%22%23FFFFFF%22%3EG%3C/text%3E%3C/svg%3E">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Guided Support Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=Noto+Sans+SC:wght@400;700&display=swap">
+<style>
+/* Layout: calm guided chat. Top bar with a 4-step progress strip; desktop adds a "Your case" side panel; phone is one column with a fold-out case bar. */
+:root{
+  --bg:#F1F5F4; --surface:#FFFFFF; --fg:#13292A; --muted:#4E6563; --line:#D3E0DD;
+  --brand:#0D5B5B; --brand-fg:#FFFFFF; --brand-soft:#E3EFED; --brand-ink:#0A4747;
+  --amber:#B7791F; --amber-bg:#FFF6E0; --amber-ink:#6B4207; --ph:#FCE7B6;
+  --crit:#B42318; --crit-bg:#FEF3F2; --crit-ink:#7A1A12; --focus:#E8A33D;
+  --font-body:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-zh:'Public Sans','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1716; --surface:#13221F; --fg:#E4EFED; --muted:#9DB5B1; --line:#27423E;
+  --brand:#5CC4B8; --brand-fg:#06201D; --brand-soft:#173A36; --brand-ink:#BFE9E3;
+  --amber:#F2B84B; --amber-bg:#33260B; --amber-ink:#FBE3B3; --ph:#5A4413;
+  --crit:#F97066; --crit-bg:#3A1513; --crit-ink:#FDD8D3; --focus:#F2B84B;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1716; --surface:#13221F; --fg:#E4EFED; --muted:#9DB5B1; --line:#27423E;
+  --brand:#5CC4B8; --brand-fg:#06201D; --brand-soft:#173A36; --brand-ink:#BFE9E3;
+  --amber:#F2B84B; --amber-bg:#33260B; --amber-ink:#FBE3B3; --ph:#5A4413;
+  --crit:#F97066; --crit-bg:#3A1513; --crit-ink:#FDD8D3; --focus:#F2B84B;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.5}
+:root[lang="zh-Hans"] body{font-family:var(--font-zh)}
+.app{height:100%;display:flex;flex-direction:column}
+a{color:var(--brand)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar + progress */
+.topbar{background:var(--surface);border-bottom:1px solid var(--line);flex-shrink:0}
+.topbar-in{max-width:1180px;margin:0 auto;padding-block:12px 10px;display:flex;flex-direction:column;gap:10px}
+.toprow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.av{width:40px;height:40px;border-radius:50%;background:var(--brand);color:var(--brand-fg);display:grid;place-items:center;font-weight:700;font-size:18px;flex-shrink:0}
+.av.sm{width:28px;height:28px;font-size:13px}
+.brand{display:flex;flex-direction:column;min-width:0;flex:1}
+.brand b{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.brand span{font-size:13px;color:var(--muted)}
+.tools{display:flex;gap:8px;align-items:center}
+.langsel{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 10px;min-height:40px;background:var(--surface)}
+.langsel select{border:0;background:transparent;min-height:38px;font-size:14px;cursor:pointer}
+.prog{display:flex;flex-direction:column;gap:6px}
+.segs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.segs i{height:5px;border-radius:3px;background:var(--line)}
+.segs i.on{background:var(--brand)}
+.prog span{font-size:13px;color:var(--muted)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;border:1.5px solid var(--brand);background:var(--surface);color:var(--brand-ink);font-weight:700;font-size:15px;cursor:pointer;text-decoration:none;text-align:center}
+.btn:hover{background:var(--brand-soft)}
+.btn.primary{background:var(--brand);color:var(--brand-fg)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.wide{width:100%}
+.btn.small{min-height:38px;padding:0 14px;font-size:14px}
+.btn.quiet{border-color:var(--line);color:var(--fg);font-weight:600}
+.btn.danger{border-color:var(--crit);color:var(--crit)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.linkbtn{background:none;border:0;padding:0;color:var(--brand);font-weight:600;text-decoration:underline;cursor:pointer;font-size:15px;min-height:32px}
+
+/* layout */
+.layout{flex:1;min-height:0;width:100%;max-width:1180px;margin:0 auto;padding-block:20px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px}
+.chat{min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.log{flex:1;min-height:0;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.composer{border-top:1px solid var(--line);padding:14px 24px 14px;display:flex;flex-direction:column;gap:10px;background:var(--surface);max-height:62%;overflow-y:auto;flex-shrink:0}
+.composer .row{display:flex;flex-wrap:wrap;gap:8px}
+.foot{font-size:12px;color:var(--muted);text-align:center;margin:0}
+.panel{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.casebar{display:none}
+
+/* messages */
+.ra{display:flex;gap:8px;align-items:flex-start;max-width:min(640px,94%)}
+.ra .sp{width:28px;flex-shrink:0}
+.ra.card-row{max-width:min(680px,100%)}
+.ra > .msg, .ra > .card{min-width:0}
+.msg{padding:11px 15px;font-size:15.5px;line-height:1.55;overflow-wrap:anywhere}
+.agent{background:var(--surface);border:1px solid var(--line);border-radius:4px 16px 16px 16px}
+.user{align-self:flex-end;max-width:min(560px,86%);background:var(--brand);color:var(--brand-fg);border-radius:16px 16px 4px 16px}
+.user .thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.user .thumbs img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.5)}
+.day{align-self:center;font-size:12px;color:var(--muted);margin-bottom:4px}
+.typing{display:flex;gap:5px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:4px 16px 16px 16px}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.typing i{animation:none;opacity:.6}.log{scroll-behavior:auto}}
+
+/* cards */
+.card{width:100%;border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:16.5px;font-weight:700;text-wrap:balance;display:flex;align-items:center;gap:8px}
+.card p{margin:0}
+.card.soft{background:var(--brand-soft);border-color:transparent}
+.card.amber{background:var(--amber-bg);border:1.5px solid var(--amber)}
+.card.amber h3{color:var(--amber-ink)}
+.card.crit{border:2px solid var(--crit);background:var(--crit-bg)}
+.card.crit h3,.crit .eyebrow{color:var(--crit-ink)}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.note{font-size:13px;color:var(--muted)}
+.list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.facts{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:10px 16px;margin:0}
+.facts dt{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.facts dd{margin:0;font-size:15px}
+.facts dd .orig{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.facts .hot{color:var(--crit-ink);font-weight:700}
+.facts .hotrow{background:var(--crit-bg);border-radius:6px;padding:4px 8px;margin:-4px -8px}
+.facts ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+.field input,.field textarea{font-weight:400;font-size:15px;color:var(--fg);background:var(--surface);border:1.5px solid var(--line);border-radius:10px;min-height:44px;padding:8px 12px;width:100%}
+.field input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
+.drop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px;border:2px dashed var(--brand);border-radius:14px;background:var(--brand-soft);color:var(--brand-ink);cursor:pointer;text-align:center}
+.drop.over{filter:brightness(.97)}
+.drop b{font-size:16px}
+.drop span{font-size:13px}
+.thumbrow{display:flex;gap:8px;flex-wrap:wrap}
+.thumbrow img{width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.thumbrow.big img{width:min(180px,44%);height:auto;aspect-ratio:3/2;object-fit:cover}
+.thumbph{width:64px;height:64px;border-radius:10px;background:var(--brand-soft);display:grid;place-items:center;color:var(--brand)}
+.saved{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.checks li{display:flex;gap:10px;align-items:flex-start}
+.checks .t{display:flex;flex-direction:column;min-width:0}
+.checks .t b{font-size:15px}
+.checks .t span{font-size:13px;color:var(--muted)}
+.dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;margin-top:1px}
+.dot.done{background:var(--brand)}
+.dot.working{border:2.5px solid var(--brand);border-right-color:transparent;animation:spin .8s linear infinite}
+.dot.todo{border:2px solid var(--line)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.dot.working{animation:none;border-right-color:var(--brand)}}
+.bar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.bar i{height:6px;border-radius:3px;background:var(--line)}
+.bar i.on{background:var(--brand)}
+.finding{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.chip{align-self:flex-start;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;border:1.5px solid}
+.chip.diff{color:var(--brand-ink);background:var(--brand-soft);border-color:var(--brand)}
+.chip.sim{color:var(--amber-ink);background:var(--amber-bg);border-color:var(--amber)}
+.chip.check{color:var(--fg);background:var(--surface);border-color:var(--muted);border-style:dashed}
+.fgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.fgrid div{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.fgrid div b,.why b,.ask b{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.why{font-size:14px;display:flex;flex-direction:column;gap:2px}
+.ask{font-size:14px;display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--brand-soft)}
+.ask b{color:var(--brand-ink)}
+.fallback{padding:10px 12px;border-radius:10px;border:1.5px dashed var(--amber);background:var(--amber-bg)}
+.fallback b{color:var(--amber-ink)}
+.att{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.att-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.att-h b{font-size:16px}
+.att-h span{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.att dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:4px 10px;margin:0;font-size:14px}
+.att dt{color:var(--muted)}
+.att dd{margin:0}
+.sample{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--amber-ink);background:var(--amber-bg);border:1px solid var(--amber);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+.gate{display:flex;gap:10px;align-items:flex-start;font-size:15px;cursor:pointer}
+.gate input{width:22px;height:22px;margin-top:1px;flex-shrink:0;accent-color:var(--brand)}
+.tbanner{border:1.5px solid var(--amber);background:var(--amber-bg);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.tbanner .eyebrow{color:var(--amber-ink)}
+
+/* tone + remedies + draft */
+.radio{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;text-align:left;width:100%}
+.radio .o{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted);flex-shrink:0;display:grid;place-items:center}
+.radio.on{border-color:var(--brand);background:var(--brand-soft)}
+.radio.on .o{border-color:var(--brand)}
+.radio.on .o::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--brand)}
+.radio b{font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.radio span.d{font-size:13px;color:var(--muted);display:block}
+.sugg{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--brand);color:var(--brand-ink);background:var(--surface)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chipbtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--brand);background:var(--surface);color:var(--brand-ink);font-weight:700;font-size:14.5px;cursor:pointer}
+.chipbtn.on{background:var(--brand);color:var(--brand-fg)}
+.locked .radio,.locked .chipbtn{cursor:default;pointer-events:none}
+.draft{border:1px solid var(--line);border-radius:12px;padding:16px;background:var(--surface);font-size:15px;line-height:1.6;outline:none;display:flex;flex-direction:column;gap:12px}
+.draft:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.draft p{margin:0}
+.ph{background:var(--ph);color:var(--fg);border-radius:4px;padding:0 3px}
+.badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--brand-soft);color:var(--brand-ink)}
+.sumlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.sumlist li{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:15px}
+.sumlist li:last-child{border-bottom:0}
+.sumlist .tick{margin-left:auto;color:var(--brand)}
+.links{display:flex;flex-direction:column;gap:8px}
+.links a{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--brand-ink);font-weight:600;font-size:15px;text-decoration:none}
+.toast{font-size:13px;color:var(--muted)}
+
+/* panel */
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.pcard h2{margin:0;font-size:15px;font-weight:700}
+.dl{border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.dl.hot{background:var(--crit-bg);border:2px solid var(--crit)}
+.dl.calm{background:var(--brand-soft)}
+.dl .big{font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.dl.hot .big,.dl.hot .eyebrow{color:var(--crit-ink)}
+.dl.calm .big,.dl.calm .eyebrow{color:var(--brand-ink)}
+.dl span{font-size:13px}
+.kv{display:flex;flex-direction:column;gap:8px;margin:0}
+.kv div{display:flex;flex-direction:column}
+.kv dt{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kv dd{margin:0;font-size:14.5px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.steps li{display:flex;gap:10px;align-items:center;font-size:14.5px;color:var(--muted)}
+.steps li i{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;flex-shrink:0;font-size:11px;font-weight:700;font-style:normal}
+.steps li.done{color:var(--fg)}
+.steps li.done i{background:var(--brand);border-color:var(--brand);color:var(--brand-fg)}
+.steps li.now{color:var(--fg);font-weight:700}
+.steps li.now i{border-color:var(--brand);color:var(--brand-ink)}
+.pnote{background:var(--amber-bg);border:1.5px solid var(--amber);border-radius:14px;padding:12px 14px;font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+.pnote b{color:var(--amber-ink)}
+.plinks{display:flex;flex-direction:column;gap:6px;font-size:14px}
+
+/* phone */
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;padding:0;gap:0}
+  .panel{display:none}
+  .chat{border-radius:0;border:0}
+  .log,.composer{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .log{padding-block:16px}
+  .casebar{display:block;background:var(--surface);border-bottom:1px solid var(--line);flex-shrink:0}
+  .casebar summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;list-style:none}
+  .casebar summary::-webkit-details-marker{display:none}
+  .casebar summary .chev{margin-left:auto;transition:transform .2s}
+  .casebar[open] summary .chev{transform:rotate(180deg)}
+  .casebar .inner{display:flex;flex-direction:column;gap:12px;padding-bottom:14px;max-height:55vh;overflow-y:auto}
+  .facts{grid-template-columns:1fr;gap:2px}
+  .facts dd{margin-bottom:10px}
+  .fgrid,.formgrid{grid-template-columns:1fr}
+  .composer .row .btn{flex:1 1 auto}
+  .ra{max-width:100%}
+}
+@media (max-width:440px){ .brand span{display:none} .langsel{padding:0 6px} }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="topbar-in gutter">
+      <div class="toprow">
+        <div class="av" aria-hidden="true">G</div>
+        <div class="brand"><b id="t-name">Guided Support Tool</b><span id="t-sub">Education only, not legal advice</span></div>
+        <div class="tools">
+          <label class="langsel" for="lang">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9s1.3-6.5 3.8-9z"/></svg>
+            <span class="sr" id="t-lang">Language</span>
+            <select id="lang">
+              <option value="en">English</option>
+              <option value="zh">简体中文</option>
+              <option disabled>Tiếng Việt (coming soon)</option>
+              <option disabled>العربية (coming soon)</option>
+              <option disabled>हिन्दी (coming soon)</option>
+              <option disabled>Ελληνικά (coming soon)</option>
+            </select>
+          </label>
+          <button type="button" class="btn small quiet" id="restart">Start again</button>
+        </div>
+      </div>
+      <div class="prog" id="prog"></div>
+    </div>
+  </header>
+  <details class="casebar gutter" id="casebar"><summary><span id="cb-title">Your case</span><span id="cb-chip"></span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="inner" id="cb-inner"></div></details>
+  <div class="layout gutter">
+    <section class="chat" aria-label="Conversation">
+      <div class="log" id="log" role="log" aria-live="polite"></div>
+      <div class="composer" id="composer"></div>
+    </section>
+    <aside class="panel" id="panel" aria-label="Your case"></aside>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* CeDes letter reader: rule-based stand-in for the language model step. */
+const TZ = {
+  AWST: { off: 8, zone: 'Australia/Perth', en: 'Perth time', zh: '西澳时间' },
+  ACST: { off: 9.5, zone: 'Australia/Darwin', en: 'Darwin time', zh: '北领地时间' },
+  ACDT: { off: 10.5, zone: 'Australia/Adelaide', en: 'Adelaide time', zh: '南澳时间' },
+  AEST: { off: 10, zone: 'Australia/Brisbane', en: 'Brisbane time', zh: '东部标准时间' },
+  AEDT: { off: 11, zone: 'Australia/Sydney', en: 'Sydney and Melbourne time', zh: '东部夏令时间' }
+};
+const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+const STATES = { 'New South Wales': 'NSW', 'Victoria': 'VIC', 'Queensland': 'QLD', 'Western Australia': 'WA', 'South Australia': 'SA', 'Tasmania': 'TAS', 'Australian Capital Territory': 'ACT', 'Northern Territory': 'NT' };
+
+function parseDeadline(str) {
+  if (!str) return null;
+  const m = str.match(/(\d{1,2})[.:](\d{2})\s*(am|pm)\s*\(?\s*(A[WCE][SD]T)?\s*\)?[^\d]*?(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/i);
+  if (!m) return null;
+  let h = +m[1] % 12; if (m[3].toLowerCase() === 'pm') h += 12;
+  const mon = MONTHS.indexOf(m[6].toLowerCase());
+  if (mon < 0) return null;
+  const tz = TZ[(m[4] || 'AEDT').toUpperCase()] ? (m[4] || 'AEDT').toUpperCase() : 'AEDT';
+  const ms = Date.UTC(+m[7], mon, +m[5], h, +m[2]) - TZ[tz].off * 3600000;
+  return { ms, tz, text: str.trim() };
+}
+
+function lev(a, b) {
+  a = a.toUpperCase(); b = b.toUpperCase();
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+function parseLetter(raw) {
+  const text = raw.replace(/\r/g, '').replace(/[‘’]/g, "'");
+  const flat = text.replace(/\s+/g, ' ');
+  const paras = text.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const out = {};
+  const firm = flat.match(/\b([A-Z][A-Za-z&' ]*?(?:LAWYERS|Lawyers|LEGAL|Legal|SOLICITORS|Solicitors)(?: PTY LTD| Pty Ltd)?)\b/);
+  if (firm) out.sender = firm[1].replace(/\b([A-Z])([A-Z]+)\b/g, (w, a, b) => a + b.toLowerCase()).replace(/\bPty Ltd\b/i, 'Pty Ltd');
+  const areasLine = paras.slice(0, 4).find(p => p.includes('|'));
+  if (areasLine) out.areas = areasLine.split('|').map(s => s.trim()).filter(Boolean);
+  const office = flat.match(/,\s*([A-Z][A-Za-z ]+?)\s+(WA|NSW|VIC|QLD|SA|TAS|ACT|NT)\s+\d{4}/);
+  if (office) out.office = office[1].trim() + ' ' + office[2];
+  const date = paras.find(p => /^\d{1,2} [A-Z][a-z]+ \d{4}$/.test(p));
+  if (date) out.letterDate = date;
+  const client = flat.match(/We act for (.+?)\s*\(ACN ([\d ]+)\)/i);
+  if (client) { out.client = client[1].trim(); out.acn = client[2].trim(); }
+  const base = flat.match(/based in ([A-Z][A-Za-z ]+),\s*(New South Wales|Victoria|Queensland|Western Australia|South Australia|Tasmania|Australian Capital Territory|Northern Territory)/);
+  if (base) out.clientBase = base[1].trim() + ' ' + STATES[base[2]];
+  const prods = flat.match(/manufacturer and distributor of ([^,]+(?:, [^,]+)*? (?:and )?[^,]+?), based/i);
+  if (prods) out.clientProducts = prods[1].trim();
+  const reg = flat.match(/Registration No\.?\s*(\d{6,7})\s*(?:for the word mark|\()\s*([A-Z][A-Z]+)/);
+  if (reg) { out.number = reg[1]; out.mark = reg[2]; }
+  const cls = flat.match(/class (\d{1,2}) in respect of\s*["“]([^"”]+)["”]/i);
+  if (cls) { out.cls = cls[1]; out.goods = cls[2].trim(); }
+  const sign = flat.match(/using the sign ([A-Z][A-Z]+)/);
+  if (sign) out.sign = sign[1];
+  const conn = flat.match(/in connection with ([^.]+?)\./i);
+  if (conn) out.yourGoods = conn[1].trim();
+  out.claimsSubstantially = /substantially identical/i.test(flat);
+  out.claimsDeceptively = /deceptively similar/i.test(flat);
+  const laws = [];
+  const tm = [...flat.matchAll(/section (\d+(?:\(\d+\))?) of (?:the )?(Trade Marks Act 1995|Act)\b/gi)].map(m => m[1]);
+  if (tm.length) laws.push({ act: 'tm', secs: [...new Set(tm)] });
+  if (/section 18 of the Australian Consumer Law/i.test(flat)) laws.push({ act: 'acl', secs: ['18'] });
+  out.laws = laws;
+  const iStart = paras.findIndex(p => /requires that you:?$/i.test(p));
+  const iEnd = paras.findIndex((p, i) => i > iStart && /^We require/i.test(p));
+  if (iStart >= 0 && iEnd > iStart) out.demands = paras.slice(iStart + 1, iEnd).map(s => s.replace(/;\s*(and)?$/, '').replace(/\.$/, ''));
+  const dl = flat.match(/by\s+(\d{1,2}[.:]\d{2}\s*[ap]m\s*\([A-Z]{4}\)\s*on\s*[A-Za-z]+,?\s*\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
+  if (dl) out.deadline = parseDeadline(dl[1]);
+  const court = flat.match(/proceedings against you in the ([A-Z][A-Za-z ]+?Court(?: of Australia)?)/);
+  if (court) out.court = court[1];
+  out.threatensCourt = /commence proceedings|legal proceedings|court/i.test(flat);
+  out.undertaking = /undertaking/i.test(flat);
+  out.ok = !!(out.mark && out.sign);
+  if (out.mark && out.sign) out.distance = lev(out.mark, out.sign);
+  return out;
+}
+
+
+
+const DEMO_TEXT = "FAKE LAWYERS PTY LTD\n\nIndustrial Relations  |  Employment  |  Commercial\n\nLevel 2, 45 High Street, Fremantle WA 6160   T (08) 5550 1234   E info@fakelawyers.com.au\n\n27 October 2026\n\nOur ref: DH:2611-FC\n\nYour ref: Not known\n\nPRIVATE AND CONFIDENTIAL\n\nBy email: hello@flakecandles.com.au\n\nThe Director\n\nFlake Candle Co Pty Ltd\n\nShop 2, 210 Little Collins Street\n\nMELBOURNE VIC 3000\n\nDear Sir or Madam\n\nInfringement of Australian Trade Mark Registration No. 2123456 (FAKE)\n\nWe act for Fake Corp Pty Ltd (ACN 612 345 678) (our client).\n\nOur client\n\nOur client is a manufacturer and distributor of toys, toy vehicles and children\u2019s products, based in Albury, New South Wales. It has traded under the name and mark FAKE since 2015, and sells its products through retailers across Australia and online at www.fakecorp.com.au.\n\nOur client is the registered owner of Australian Trade Mark Registration No. 2123456 for the word mark FAKE (the FAKE Mark). The FAKE Mark is registered in class 28 in respect of \u201ctoys; toy vehicles; games and playthings\u201d, with a priority date of 14 March 2019.\n\nYour conduct\n\nIt has come to our client\u2019s attention that you are using the sign FLAKE (the FLAKE Sign) in connection with scented candles, soaps and related products. This includes use on product packaging, on the shop signage at your premises at Shop 2, 210 Little Collins Street, Melbourne, on your website www.flakecandles.com.au and on your Instagram account @flakecandleco.\n\nOur client considers that the FLAKE Sign is substantially identical with the FAKE Mark. The two differ by a single letter and, in our client\u2019s view, convey the same overall impression to consumers.\n\nInfringement\n\nYour use of the FLAKE Sign as a trade mark infringes our client\u2019s registered trade mark under section 120 of the Trade Marks Act 1995 (Cth) (the Act).\n\nFurther, your conduct is misleading or deceptive, or likely to mislead or deceive, in contravention of section 18 of the Australian Consumer Law, being Schedule 2 to the Competition and Consumer Act 2010 (Cth).\n\nOur client\u2019s demands\n\nOur client requires that you:\n\nimmediately cease all use of the FLAKE Sign, and of any other sign substantially identical with or deceptively similar to the FAKE Mark;\n\nwithin 14 days of the date of this letter, remove the FLAKE Sign from all products, packaging, signage, your website and your social media accounts;\n\ndeliver up to us, or destroy and provide evidence of the destruction of, all stock and materials bearing the FLAKE Sign;\n\nprovide a written account of all sales of products bearing the FLAKE Sign since you first began using it; and\n\nsign and return the enclosed undertaking.\n\nWe require your written confirmation that you will comply with these demands, together with the signed undertaking, by 4.00 pm (AWST) on Tuesday, 10 November 2026.\n\nIf you do not comply\n\nIf we do not receive a satisfactory response by that time, our client has instructed us to commence proceedings against you in the Federal Court of Australia without further notice. Those proceedings may seek injunctions, damages or an account of profits, additional damages under section 126(2) of the Act, delivery up, and costs.\n\nNothing in this letter is intended to be, or should be taken as, a waiver of any of our client\u2019s rights, all of which are expressly reserved.\n\nWe recommend that you obtain independent legal advice about this letter.\n\nYours faithfully\n\nDaniel Hartley\n\nPrincipal\n\nFake Lawyers Pty Ltd\n\nEnclosure: Undertaking\n\n\n\nUNDERTAKING\n\nTo: Fake Corp Pty Ltd (ACN 612 345 678)\n\nFlake Candle Co Pty Ltd undertakes to Fake Corp Pty Ltd that it will:\n\nnot use the sign FLAKE, or any sign substantially identical with or deceptively similar to Australian Trade Mark Registration No. 2123456 (FAKE), in relation to any goods or services;\n\nby 24 November 2026, remove the sign FLAKE from all products, packaging, signage, websites and social media accounts under its control;\n\nby 24 November 2026, deliver up to Fake Lawyers Pty Ltd, or destroy, all stock and materials bearing the sign FLAKE, and provide written evidence of that destruction; and\n\nwithin 14 days of signing this undertaking, provide a written account of all sales of products bearing the sign FLAKE.\n\n\n\nSigned for Flake Candle Co Pty Ltd by its director:\n\nSignature: ______________________\tDate: ________________\n\nName: _________________________________\n\n";
+const LINKS = {
+  firstResponse: 'https://ipfirstresponse.ipaustralia.gov.au',
+  scams: 'https://www.ipaustralia.gov.au/about-us/doing-business-with-us/fraud-and-corruption/spot-and-avoid-ip-scams',
+  tmSearch: 'https://search.ipaustralia.gov.au/trademarks/search/quick',
+  engage: 'https://ttipattorney.gov.au/for-clients/how-to-engage-an-attorney'
+};
+/* demo data for the sending path (fictional) */
+const DEMO_SEND = {
+  tm: { yourName:'James Nguyen', yourBiz:'Wick & Wonder Pty Ltd', mark:'WICK & WONDER', number:'2201234', since:'2021', email:'james@example.com' },
+  copy: { yourName:'James Nguyen', yourBiz:'Wick & Wonder Pty Ltd', work:'the product photos for my Autumn Ember candle range', made:'2024', email:'james@example.com' },
+  their:'Wick and Wander', where:'their online marketplace shop'
+};
+function demoShots(){
+  const wrap = (body, cap) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320" font-family="Helvetica, Arial, sans-serif"><rect width="480" height="320" fill="#ffffff"/>' + body + '<rect y="292" width="480" height="28" fill="#1f2933"/><text x="12" y="311" font-size="12" fill="#ffffff">' + cap + '</text><text x="468" y="311" font-size="11" fill="#c9d1d9" text-anchor="end">DEMO SCREENSHOT</text></svg>');
+  const candle = (x, y, s, c) => '<rect x="' + x + '" y="' + (y + 14 * s) + '" width="' + 34 * s + '" height="' + 44 * s + '" rx="' + 4 * s + '" fill="' + c + '"/><rect x="' + (x + 16 * s) + '" y="' + (y + 6 * s) + '" width="' + 2 * s + '" height="' + 9 * s + '" fill="#333"/><ellipse cx="' + (x + 17 * s) + '" cy="' + (y + 3 * s) + '" rx="' + 4 * s + '" ry="' + 7 * s + '" fill="#f2a93b"/>';
+  const shop = '<rect width="480" height="34" fill="#e8eaed"/><circle cx="16" cy="17" r="5" fill="#ff5f57"/><circle cx="32" cy="17" r="5" fill="#febc2e"/><circle cx="48" cy="17" r="5" fill="#28c840"/><rect x="66" y="8" width="400" height="18" rx="9" fill="#ffffff"/><text x="78" y="21" font-size="11" fill="#444">marketplace.example/shop/wickandwander</text>' +
+    '<rect y="34" width="480" height="84" fill="#f4e9dc"/><text x="240" y="76" font-size="30" font-family="Georgia, serif" font-style="italic" fill="#5b3a29" text-anchor="middle">Wick &amp; Wander</text><text x="240" y="100" font-size="13" fill="#7a5b48" text-anchor="middle">Hand-poured soy candles</text>' +
+    [0, 1, 2].map(i => '<rect x="' + (28 + i * 148) + '" y="132" width="128" height="140" rx="8" fill="#faf7f3" stroke="#e5ddd4"/>' + candle(73 + i * 148, 148, 1.1, ['#d9c2a7', '#b9d3c9', '#e7b8a5'][i]) + '<text x="' + (92 + i * 148) + '" y="240" font-size="12" fill="#333" text-anchor="middle">' + ['Ember', 'Sea Salt', 'Fig'][i] + ' soy candle</text><text x="' + (92 + i * 148) + '" y="258" font-size="12" font-weight="bold" fill="#333" text-anchor="middle">$34.00</text>').join('');
+  const social = '<rect width="480" height="292" fill="#fafafa"/><rect x="120" y="10" width="240" height="276" rx="14" fill="#ffffff" stroke="#dddddd"/><circle cx="144" cy="34" r="12" fill="#f4e9dc"/><text x="138" y="39" font-size="12" font-family="Georgia, serif" fill="#5b3a29">W</text><text x="164" y="38" font-size="13" font-weight="bold" fill="#222">wickandwander</text>' +
+    '<rect x="120" y="54" width="240" height="160" fill="#f4e9dc"/>' + candle(222, 92, 1.4, '#d9c2a7') + '<text x="240" y="200" font-size="18" font-family="Georgia, serif" font-style="italic" fill="#5b3a29" text-anchor="middle">Wick &amp; Wander</text>' +
+    '<text x="132" y="236" font-size="12" font-weight="bold" fill="#222">wickandwander</text><text x="132" y="254" font-size="12" fill="#333">Our new autumn range is here.</text><text x="132" y="272" font-size="11" fill="#888">128 likes</text>';
+  const listing = '<rect width="480" height="292" fill="#ffffff"/><rect x="20" y="20" width="180" height="200" rx="8" fill="#f4e9dc"/>' + candle(88, 70, 1.6, '#e7b8a5') +
+    '<text x="220" y="44" font-size="15" font-weight="bold" fill="#222">Wick &amp; Wander Signature</text><text x="220" y="64" font-size="15" font-weight="bold" fill="#222">Soy Candle, 300 g</text><text x="220" y="94" font-size="20" font-weight="bold" fill="#0d5b5b">$34.00</text>' +
+    '<text x="220" y="122" font-size="12" fill="#555">Sold by Wick and Wander</text><text x="220" y="140" font-size="12" fill="#555">Ships Australia-wide</text><rect x="220" y="160" width="140" height="34" rx="17" fill="#222"/><text x="290" y="182" font-size="13" fill="#ffffff" text-anchor="middle">Add to cart</text>';
+  return [wrap(shop, 'Shop page · captured 12 Oct 2026, 9:41 am'), wrap(social, 'Social media post · captured 12 Oct 2026, 9:47 am'), wrap(listing, 'Product listing · captured 14 Oct 2026, 2:15 pm')];
+}
+const I_CHECK ='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+const I_WARN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17v.5"/></svg>';
+const I_LOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const I_DOC = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
+const I_IMG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>';
+const I_DL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>';
+
+/* ---------- words ---------- */
+const STR = {
+en: {
+  name:'Guided Support Tool', sub:'Education only, not legal advice', lang:'Language', restart:'Start again',
+  foot:'Education only, not legal advice · Private by default', today:'Today',
+  stageOf:'Step {n} of 4 · {l}',
+  stages0:['Getting started','Getting started','Getting started','Getting started'],
+  stagesSend:['Getting started','Checking your position','Building your letter','Review & summary'],
+  stagesRecv:['Getting started','Reading your letter','Checking the claim','Getting help'],
+  caseTitle:'Your case', caseEmpty:'Your answers will appear here as we go.',
+  noticeT:'Not legal advice', noticeB:'This tool explains your situation and points you to public information. It can’t tell you what to do. For that, speak to a trade mark attorney or lawyer.',
+  helpT:'Helpful links', lFirst:'IP First Response', lScams:'Spot and avoid IP scams', lEngage:'How to engage an IP attorney', lSearch:'IP Australia trade mark search',
+  /* start */
+  hi:'Hi, I’m your guided support tool. I help people work out their options with cease and desist letters and letters of demand, one step at a time.',
+  consentT:'Before we start', consentB:'I give general information, not legal advice. Nothing is sent or decided without you. At the end, you choose whether I keep a summary or delete everything.',
+  howT:'How your information is handled', howB:'In this prototype, everything stays in your browser. Nothing is sent to a server. A live version would follow a published privacy policy and the Australian Privacy Principles.',
+  consentQ:'Do you accept this and want to continue?', yesCont:'Yes, continue', noThanks:'No thanks',
+  declined:'No problem. Nothing has been saved. You can come back any time.',
+  thanks:'Thanks. What would you like help with?', optReceived:'I received a letter', optSend:'I want to send one',
+  /* send path */
+  sIntro:'Thanks. Let’s check a few things first, so that any letter you send is fair and well grounded. Take a breath. There’s no rush, and nothing has to be decided today.',
+  ownQ:'Do you clearly own the IP right involved? For example, a registered trade mark or your own original work.',
+  ownWhat:'What counts as owning IP?',
+  ownInfoT:'What counts as owning IP?',
+  own1:'A registered trade mark. You can look it up on IP Australia’s trade mark search.',
+  own2:'Your own original work, such as photos, designs or text. Copyright is automatic in Australia, with no registration needed.',
+  own3:'A registered design or a patent.',
+  own4:'Registering a business name or an ABN does not, on its own, give you trade mark rights.',
+  ownTm:'Yes, a registered trade mark', ownCopy:'Yes, my own original work', ownUnsure:'I’m not sure', ownNo:'No',
+  tmAsk:'Great. Tell me about it. Skip anything you don’t know and I’ll leave a placeholder in the letter.',
+  workAsk:'Great. Tell me about the work. Skip anything you don’t know and I’ll leave a placeholder in the letter.',
+  demoFill:'Use demo details', demoShots:'Use demo screenshots',
+  fYourName:'Your name', fYourBiz:'Your business name', fMark:'Your trade mark (name or logo)', fNumber:'Registration number', fSince:'Year you started using it', fWork:'What is the work? (e.g. my product photos)', fMade:'Year you created it', fEmail:'Your email', cont:'Continue', skip:'Skip for now',
+  detailsSaid:'Here are my details.', detailsSkipped:'I’ll fill them in later.',
+  unsureLead:'That’s okay. IP can mean a few different things. Here’s how to check each one. I won’t build a letter yet.',
+  checkAllT:'How to check what you own',
+  cTmT:'Trade mark', cTmB:'Search IP Australia’s trade mark search for your name or logo. Check the owner, that the status says Registered, and the goods and services listed.',
+  cCopyT:'Your own original work (copyright)', cCopyB:'Copyright is automatic in Australia. There is nothing to register. You usually own it if you made it yourself. If an employee made it for your business, the business usually owns it. If you paid someone else to make it, check your contract.',
+  cDesT:'Design or patent', cDesB:'Search IP Australia’s design or patent search. These rights only exist once they are registered or granted.',
+  cName:'A business name or ABN on its own does not give you trade mark rights.',
+  unsureTm:'It’s a registered trade mark', unsureCopy:'It’s my own original work', checkOwn:'I want to check what I own',
+  noLead:'Thanks for being upfront. Without an IP right of your own, a cease and desist letter isn’t the right tool, and sending one could backfire. You may still have options, for example if customers are being misled. IP First Response can help you work out where you stand.',
+  showCheck:'Show me how to check', checkT:'How to check what’s registered',
+  chk1:'Open IP Australia’s trade mark search.', chk2:'Search for your business or brand name.', chk3:'Check the owner, the status (it should say Registered) and the goods and services listed.',
+  chkDone:'I’ve checked, I own it',
+  evQ:'Do you have evidence that they’re using it? Screenshots, listings and dates all help.',
+  evAsk:'Add your screenshots and tell me who is using it.',
+  fTheir:'Their business name', fWhere:'Where you saw it (e.g. their online shop)', addShots:'Add screenshots', shotsHint:'Images only. They stay in your browser.',
+  evSaid:'Here’s what I have.', evSaved:'{n} screenshot(s) · saved to your case summary', evNone:'No screenshots added yet',
+  noEvLead:'Without evidence, a letter is hard to back up. Try saving dated screenshots, listing links and any messages. I’ve made you a checklist. I won’t build a letter yet.',
+  evListT:'Evidence checklist',
+  ev1:'Dated screenshots of their name, logo or product', ev2:'Links to their website, online shop or social media', ev3:'When you first noticed it', ev4:'Any messages between you', ev5:'Proof of when you started using your name, such as early invoices or posts',
+  haveEvNow:'I have evidence now',
+  honestQ:'Could this be an honest mistake? For example, they may not know your name is registered.',
+  nudgeLead:'Then a friendly nudge often works best, and can save time and money. Would you like a short, polite message instead of a formal letter?',
+  yesDraftIt:'Yes, draft it', noCont:'No, continue',
+  complexQ:'Is this complex or high stakes for you? For example, a large sum of money, several parties, a much bigger business on the other side, or your main income depends on it.',
+  complexLead:'With that much at stake, I’d suggest speaking to a legal professional before sending anything. I can package your answers and evidence to hand them, which can save time and cost.',
+  freeT:'Free and low-cost options', freeCLC:'Community legal centres', freeLaw:'Law society referral service',
+  getSummary:'Get my summary', draftAnyway:'Draft a letter to show them',
+  cautionLead:'Thanks. A straightforward letter looks reasonable here. One important heads-up first:',
+  cautionT:'A quick caution about threats', cautionB:'In Australia, threatening someone with legal action over a trade mark, patent, design or copyright without good grounds can itself cause legal trouble. I’ll keep your letter to facts you can support.',
+  readMore:'Read more on IP First Response', gotIt:'Got it, build my letter',
+  toneLead:'Great. I’ll write it in plain English, calm and factual. First, how should it sound?',
+  toneT:'Tone', tFriendly:'Friendly', tFriendlyD:'Assumes a misunderstanding', tFirm:'Firm but polite', tFirmD:'Clear and calm, with no threats', tFormal:'Formal', tFormalD:'Plain legal style', suggested:'Suggested',
+  remLead:'And what would you like them to do? Pick any that apply.',
+  rStop:'Stop using my name and logo', rStopC:'Stop using my work', rRemove:'Remove online listings', rChange:'Change their branding', rTalk:'Talk it through',
+  createDraft:'Create my draft', needRem:'Pick at least one option.',
+  draftLead:'Here’s your first draft. Tap any line to edit it. The amber brackets are details for you to fill in.',
+  nudgeDraftLead:'Here’s a short, friendly message. Tap any line to edit it. The amber brackets are details for you to fill in.',
+  draftT:'Draft letter · plain English', nudgeT:'Short message · friendly', editable:'Editable',
+  draftNote:'Nothing is sent from here. You copy or send it yourself.', copyDraft:'Copy draft', copied:'Copied',
+  zhNote:'',
+  happyQ:'Are you happy with the draft?', yes:'Yes', no:'No', noChange:'No, change it',
+  changeQ:'What would you like to change?', chTone:'The tone', chRem:'What I’m asking for', chText:'I’ll edit the text myself',
+  editHint:'Tap the draft above and type. Your changes are kept. Tell me when you’re done.', doneEditing:'I’m done editing',
+  ready:'Thanks. Your case summary is ready. Nothing has been sent. You decide if and when to send anything.',
+  sumT:'Your case summary', sumAns:'Your answers and choices', sumEv:'Evidence · {n} screenshot(s)', sumDraft:'Draft · {tone}', sumNoDraft:'No draft yet',
+  sumLawyer:'Taking this to a lawyer? Hand them the summary. It can save time and cost.',
+  dlPdf:'Download summary (PDF)', copySum:'Copy summary', copiedSum:'Summary copied', del:'Delete my data now', pdfMade:'Summary downloaded.',
+  moreQ:'Do you need help with anything else?', noDone:'No, I’m done',
+  deleted:'Your answers, evidence and drafts have been cleared from this browser.',
+  bye:'Thanks for using the guided support tool. Take care.',
+  pYourMark:'Your trade mark', pWork:'Your work', pTheir:'Their business', pEvidence:'Evidence', pTone:'Tone', pShots:'{n} screenshot(s)',
+  /* received path (from earlier prototype) */
+  uploadAsk:'Please upload the letter. I’ll read it and pull out the key details.',
+  dropT:'Upload the letter', dropH:'Word (.docx) or text file. Drag it here or choose a file.',
+  useDemo:'Use the demo letter', cantUpload:'I can’t upload it',
+  uploaded:'Uploaded: {name}', reading:'Reading your letter…',
+  readFail:'I couldn’t find the key details in that file. This prototype is set up for the demo letter. You can try again, use the demo letter, or type the details in.',
+  pdfMsg:'This prototype reads Word (.docx) and text files. Please upload the Word version.',
+  manualAsk:'No problem. Tell me what the letter says and I’ll organise it.',
+  fSender:'Who sent the letter?', fClient:'On whose behalf?', fTheirMark:'Their trade mark', fNumber2:'Registration number (if given)', fSign:'The name you use', fDeadline:'Reply date in the letter',
+  manualSent:'I’ve entered the details.',
+  replyIn:'Reply due in', days:n=>n===1?'1 day':n+' days', todayDue:'Reply due today', passed:'Reply date has passed', by:'By',
+  urgentLead:'Before anything else, I found something time-sensitive.', urgentEy:'Urgent',
+  urgentT:n=>n<0?'The reply date has passed':n===0?'Reply due today':'Reply due in '+(n===1?'1 day':n+' days'),
+  urgentB:'The letter asks for a reply by {when} ({tzname}). That is {local} your time.',
+  courtLine:'It also says they may start proceedings in the {court} without further notice.',
+  goodT:'Good to know', goodB:'A date in a letter is not a court order. But don’t ignore it. Getting advice early gives you the most options.',
+  findNow:'Find a trade mark attorney now', toSummary:'Continue to the letter summary',
+  summaryLead:'Here’s what your letter says.', summaryT:'Your letter in plain English', readByAi:'Rule-based extraction',
+  kSender:'Sent by', kClient:'On behalf of', kMark:'Their trade mark', kFor:'Registered for', kSign:'What they object to', kClaims:'What they say', kWants:'What they want', kDeadline:'Reply by', kLaw:'Law cited',
+  regNo:'registration no. {n}', classGoods:'Class {c}: {g}',
+  claimsTm:'Your use of {sign} as a trade mark infringes their registered trade mark (s 120).',
+  claimsAcl:'Your conduct is misleading or deceptive under the Australian Consumer Law (s 18).',
+  tmAct:'Trade Marks Act 1995 (Cth)', acl:'Australian Consumer Law',
+  checkNote:'Check this against your letter. AI can misread things.',
+  edit:'Something wrong? Edit', save:'Save changes', cancel:'Cancel', saved:'I’ve updated the summary with your changes.',
+  summaryQ:'Would you like me to check the letter against public information, such as the trade mark register?',
+  yesCheck:'Yes, check it', noThanks2:'No thanks',
+  useAsk:'To compare fairly, tell me what you sell. You can also add photos of how you use your name, such as packaging or your shop sign.',
+  sellL:'What does your business sell?', sellP:'For example: scented candles and soaps', photosL:'Add photos (optional)', startCheck:'Start checking',
+  userSells:'We sell {x}.', userPhotos:' {n} photo(s) added.',
+  researchLead:'This prototype cannot access public registers. The next screen illustrates questions to investigate; it is not external verification.', researchT:'Checking sources',
+  s1:'IP Australia trade mark register', s1d:'Found {n}: {m}, class {c}, registered',
+  s2:'Trade Marks Act 1995 (Cth)', s2d:'Read the infringement sections (s 120)',
+  s3:'IP Australia trade marks manual', s3d:'How similar marks are compared',
+  s4:'Sender’s public details', s4d:'Practice areas and offices',
+  s5:'{client}’s products', s5d:'What they sell under the mark',
+  s6:'Compare the names and goods', s6d:'{sign} and {mark}',
+  researchDone:'No external sources were checked. The following comparisons are illustrative and must be independently verified.',
+  gateT:'Before you see the results', gateB:'This is general information, not legal advice. It puts what the letter says next to public information, and lists questions you could ask a professional. It doesn’t tell you whether you have infringed, or what you should do.',
+  gateCheck:'I understand this is not legal advice', gateBtn:'Show what I found', gateDone:'I understand this is not legal advice.',
+  findT:'What I found', findSub:'Prototype illustration based on the letter and simple comparisons. No external sources have been checked. Do not rely on these results to assess infringement.',
+  lLetter:'Your letter says', lPublic:'Unverified illustration', lWhy:'Why it may matter', lAsk:'Ask a professional',
+  tagDiff:'Difference found', tagSim:'Similarity found', tagCheck:'Worth checking',
+  g_t:'The goods', g_l:'Their mark is registered for class {c}: {g}.', g_p:'You sell {s}{uc}. The register lists only class {c} for {n}.',
+  ucOne:' (usually class {a})', ucTwo:' (usually classes {a} and {b})',
+  g_w:'Section 120(1) covers use on the goods a mark is registered for. Section 120(2) covers goods of the same description. Section 120(3) covers marks that are well known in Australia.',
+  g_a:'Are my goods “of the same description” as theirs? Is their mark well known in Australia?',
+  m_t:'The two names', m_l:'They say {sign} is substantially identical with {mark}.', m_p:'{sign} and {mark} differ by {dl}.',
+  m_ft:'Their likely fallback', m_f:'If a court finds the names are not substantially identical, they would likely argue that {sign} is deceptively similar to {mark}. That test is wider, and how the names sound matters more.', m_f2:' Their demands already mention deceptively similar signs.',
+  m_w:'These are two different tests. Substantially identical doesn’t mean an exact match: courts compare the marks side by side and weigh their main features and overall impression. Deceptively similar is wider: is the sign so close that it is likely to deceive or confuse an ordinary buyer who remembers the mark imperfectly (s 10)?',
+  m_a:'Is {sign} substantially identical with {mark}? If not, is it deceptively similar?',
+  s_t:'Who sent the letter', s_l:'{sender}, acting for {client} ({base}).', s_p:'The letterhead lists {areas}, with an office in {office}.',
+  s_w:'Using a law firm in another state is common, so this alone doesn’t make a letter doubtful. Some IP letters are scams, so confirm who sent it.',
+  s_a:'Check the firm on your state’s law society register, and contact them using details you find yourself.',
+  c_t:'The threat of court action', c_l:'They say they may start proceedings in the {court} without further notice.',
+  c_p:'The Act lets a person threatened with infringement proceedings take action in some cases if the threats are unjustified (s 129).',
+  c_w:'This may affect how you respond, but it depends on the facts.', c_a:'Are the threats in this letter justified?',
+  optsT:'Common next steps', optsSub:'People in your position often consider these. Which one suits you depends on your situation.',
+  o1:'Ask for more time or more information', o2:'Reply to explain your position', o3:'Negotiate, for example a phase-out period', o4:'Change or stop using the name', o5:'Get advice before you reply',
+  attQ:'Would you like help finding a registered trade mark attorney near you?', yesFind:'Yes, find one',
+  pcAsk:'What’s your postcode?', pcL:'Postcode', pcP:'For example 3000', search:'Search', pcErr:'Enter a 4-digit Australian postcode.',
+  searching:'{pc} is {place}. Searching the register of trade mark attorneys…',
+  attLead:'Here are registered trade mark attorneys near {place}.',
+  attNote:'Sorted by distance only. This tool does not recommend any attorney. Demo data: a live version would use the Trans-Tasman IP Attorneys Board register.',
+  hHours:'Hours', hPhone:'Phone', hEmail:'Email', hLangs:'Languages', copy:'Copy details', sampleTag:'SAMPLE',
+  nextLead:'Here’s a summary you can take to a professional.', nextT:'Your next steps',
+  n1:'Don’t ignore the letter. Reply by {when}.', n2:'Low-cost help: community legal centres, and your state law society’s referral service.', n3:'An attorney can read your summary before your first meeting.',
+  showNext:'Show my next steps', backSummary:'Continue to the letter summary',
+  tBannerT:'', tBannerB:''
+},
+zh: {
+  name:'引导支持工具', sub:'仅供学习参考，不构成法律意见', lang:'语言', restart:'重新开始',
+  foot:'仅供学习参考，不构成法律意见 · 默认保护隐私', today:'今天',
+  stageOf:'第 {n} 步，共 4 步 · {l}',
+  stages0:['开始','开始','开始','开始'],
+  stagesSend:['开始','核实您的情况','起草信件','查看与摘要'],
+  stagesRecv:['开始','阅读信件','核查主张','寻求帮助'],
+  caseTitle:'您的案件', caseEmpty:'您的回答会随着对话显示在这里。',
+  noticeT:'并非法律意见', noticeB:'本工具帮您了解情况并提供公开信息，但不能告诉您应该怎么做。如需建议，请咨询商标代理人（trade mark attorney）或律师。',
+  helpT:'实用链接', lFirst:'IP First Response（英文）', lScams:'识别和防范知识产权诈骗（英文）', lEngage:'如何委托知识产权代理人（英文）', lSearch:'IP Australia 商标检索（英文）',
+  hi:'您好，我是引导支持工具。我会一步一步帮您了解与停止侵权函（cease and desist letter）和索偿函（letter of demand）有关的选项。',
+  consentT:'开始之前', consentB:'我提供一般信息，不提供法律意见。未经您同意，不会发送任何内容，也不会替您做任何决定。最后由您决定保留摘要还是删除全部内容。',
+  howT:'我们如何处理您的信息', howB:'在本原型中，所有内容都只保存在您的浏览器中，不会发送到服务器。正式版本将遵循公开的隐私政策和《澳大利亚隐私原则》（Australian Privacy Principles）。',
+  consentQ:'您是否同意并继续？', yesCont:'同意，继续', noThanks:'不用了',
+  declined:'没关系。我们没有保存任何内容。欢迎随时回来。',
+  thanks:'谢谢。今天需要什么帮助？', optReceived:'我收到了一封信', optSend:'我想发一封信',
+  sIntro:'谢谢。我们先核实几件事，确保您发出的信件公平且有依据。别着急，今天不需要做任何决定。',
+  ownQ:'您是否明确拥有相关的知识产权？例如注册商标或您自己的原创作品。',
+  ownWhat:'怎样才算拥有知识产权？', ownInfoT:'怎样才算拥有知识产权？',
+  own1:'注册商标。您可以在 IP Australia 的商标检索中查到。',
+  own2:'您自己的原创作品，例如照片、设计或文字。在澳大利亚，版权自动产生，无需注册。',
+  own3:'注册外观设计或专利。',
+  own4:'仅注册商业名称或 ABN 并不会给您商标权。',
+  ownTm:'是，注册商标', ownCopy:'是，我的原创作品', ownUnsure:'我不确定', ownNo:'否',
+  tmAsk:'很好。请介绍一下。不知道的可以跳过，我会在信中留下占位符。',
+  workAsk:'很好。请介绍一下您的作品。不知道的可以跳过，我会在信中留下占位符。',
+  demoFill:'使用演示信息', demoShots:'使用演示截图',
+  fYourName:'您的姓名', fYourBiz:'您的企业名称', fMark:'您的商标（名称或标志）', fNumber:'注册号', fSince:'开始使用的年份', fWork:'作品是什么？（例如：我的产品照片）', fMade:'创作年份', fEmail:'您的电邮', cont:'继续', skip:'稍后再填',
+  detailsSaid:'这是我的信息。', detailsSkipped:'我稍后再填。',
+  unsureLead:'没关系。知识产权包括几种不同的类型。以下是逐一核实的方法。我暂时不会起草信件。',
+  checkAllT:'如何核实您拥有的权利',
+  cTmT:'商标', cTmB:'在 IP Australia 的商标检索中搜索您的名称或标志。核对所有人、状态是否为 Registered，以及所列的商品和服务。',
+  cCopyT:'您自己的原创作品（版权）', cCopyB:'在澳大利亚，版权自动产生，无需注册。作品如果是您亲自创作的，通常归您所有。如果是员工为您的企业创作的，通常归企业所有。如果是您付钱请别人创作的，请查看合同。',
+  cDesT:'外观设计或专利', cDesB:'在 IP Australia 的外观设计或专利检索中搜索。这些权利只有在注册或获授予后才存在。',
+  cName:'仅有商业名称或 ABN 并不会给您商标权。',
+  unsureTm:'是注册商标', unsureCopy:'是我的原创作品', checkOwn:'我想核实我拥有什么',
+  noLead:'谢谢您如实告知。如果您没有自己的知识产权，停止侵权函并不是合适的工具，发出这样的信件还可能适得其反。您可能仍有其他选择，例如顾客受到误导的情况。IP First Response 可以帮您了解自己的处境。',
+  showCheck:'教我如何查询', checkT:'如何查询注册情况',
+  chk1:'打开 IP Australia 的商标检索。', chk2:'搜索您的企业或品牌名称。', chk3:'核对所有人、状态（应显示 Registered）以及所列的商品和服务。',
+  chkDone:'我查过了，是我的',
+  evQ:'您是否有对方正在使用的证据？截图、商品页面和日期都很有帮助。',
+  evAsk:'请添加截图，并告诉我是谁在使用。',
+  fTheir:'对方的企业名称', fWhere:'您在哪里看到的（例如：对方的网店）', addShots:'添加截图', shotsHint:'仅限图片。只保存在您的浏览器中。',
+  evSaid:'这是我掌握的信息。', evSaved:'{n} 张截图 · 已保存到您的案件摘要', evNone:'尚未添加截图',
+  noEvLead:'没有证据，信件很难站得住脚。请保存带日期的截图、商品链接和往来信息。我为您准备了一份清单。我暂时不会起草信件。',
+  evListT:'证据清单',
+  ev1:'对方名称、标志或产品的带日期截图', ev2:'对方网站、网店或社交媒体的链接', ev3:'您第一次注意到的时间', ev4:'双方之间的往来信息', ev5:'您开始使用该名称的证明，例如早期发票或帖子',
+  haveEvNow:'我现在有证据了',
+  honestQ:'这会不会是无心之失？例如，对方可能不知道您的名称已注册。',
+  nudgeLead:'那么，友好的提醒通常最有效，还能节省时间和金钱。要不要发一条简短、礼貌的消息，而不是正式信函？',
+  yesDraftIt:'好，帮我起草', noCont:'不用，继续',
+  complexQ:'这件事对您来说是否复杂或利害重大？例如涉及大笔金额、多方当事人、对方规模比您大很多，或关系到您的主要收入。',
+  complexLead:'既然利害重大，我建议您在发送任何内容之前先咨询法律专业人士。我可以把您的回答和证据整理好交给他们，这样可以节省时间和费用。',
+  freeT:'免费和低收费选项', freeCLC:'社区法律中心（community legal centres）', freeLaw:'律师协会转介服务',
+  getSummary:'获取我的摘要', draftAnyway:'起草一封信给他们看',
+  cautionLead:'谢谢。看起来写一封简单直接的信是合理的。先提醒您一件重要的事：',
+  cautionT:'关于威胁的提醒', cautionB:'在澳大利亚，如果没有充分依据就以商标、专利、外观设计或版权为由威胁对方采取法律行动，您本身也可能惹上法律麻烦。我会让信件只包含您能证明的事实。',
+  readMore:'在 IP First Response 了解更多（英文）', gotIt:'明白了，起草信件',
+  toneLead:'好的。我会用简明的英文起草，语气平和、只讲事实。首先，您希望信件是什么语气？',
+  toneT:'语气', tFriendly:'友好', tFriendlyD:'假定是误会', tFirm:'坚定而礼貌', tFirmD:'清楚平和，不含威胁', tFormal:'正式', tFormalD:'简明的法律文书风格', suggested:'推荐',
+  remLead:'您希望对方怎么做？可多选。',
+  rStop:'停止使用我的名称和标志', rStopC:'停止使用我的作品', rRemove:'移除网上商品页面', rChange:'更改他们的品牌', rTalk:'当面沟通',
+  createDraft:'生成草稿', needRem:'请至少选择一项。',
+  draftLead:'这是您的初稿。点击任意一行即可编辑。琥珀色方括号是需要您填写的内容。',
+  nudgeDraftLead:'这是一条简短、友好的消息。点击任意一行即可编辑。琥珀色方括号是需要您填写的内容。',
+  draftT:'信件草稿 · 简明英文', nudgeT:'简短消息 · 友好', editable:'可编辑',
+  draftNote:'本工具不会发送任何内容。由您自己复制或发送。', copyDraft:'复制草稿', copied:'已复制',
+  zhNote:'草稿以英文撰写，因为对方通常使用英文。',
+  happyQ:'您对草稿满意吗？', yes:'是', no:'否', noChange:'不满意，修改',
+  changeQ:'您想修改什么？', chTone:'语气', chRem:'我的要求', chText:'我自己修改文字',
+  editHint:'点击上方草稿直接输入。您的修改会被保留。改完后告诉我。', doneEditing:'我改好了',
+  ready:'谢谢。您的案件摘要已准备好。没有发送任何内容。何时发送、是否发送由您决定。',
+  sumT:'您的案件摘要', sumAns:'您的回答和选择', sumEv:'证据 · {n} 张截图', sumDraft:'草稿 · {tone}', sumNoDraft:'尚无草稿',
+  sumLawyer:'要咨询律师吗？把摘要交给他们，可以节省时间和费用。',
+  dlPdf:'下载摘要（PDF，英文）', copySum:'复制摘要', copiedSum:'摘要已复制', del:'立即删除我的数据', pdfMade:'摘要已下载。',
+  moreQ:'还有其他需要帮忙的吗？', noDone:'没有了',
+  deleted:'您的回答、证据和草稿已从本浏览器中清除。',
+  bye:'感谢使用引导支持工具。祝一切顺利。',
+  pYourMark:'您的商标', pWork:'您的作品', pTheir:'对方企业', pEvidence:'证据', pTone:'语气', pShots:'{n} 张截图',
+  uploadAsk:'请上传信件。我会阅读并提取关键信息。',
+  dropT:'上传信件', dropH:'Word (.docx) 或文本文件。拖放到此处或选择文件。',
+  useDemo:'使用演示信件', cantUpload:'我无法上传',
+  uploaded:'已上传：{name}', reading:'正在阅读您的信件…',
+  readFail:'我未能在该文件中找到关键信息。本原型针对演示信件设计。您可以重试、使用演示信件，或手动输入信息。',
+  pdfMsg:'本原型可读取 Word (.docx) 和文本文件，请上传 Word 版本。',
+  manualAsk:'没关系。请告诉我信件内容，我来帮您整理。',
+  fSender:'发件人是谁？', fClient:'代表谁发出？', fTheirMark:'对方的商标', fNumber2:'注册号（如有）', fSign:'您使用的名称', fDeadline:'信中的回复期限',
+  manualSent:'我已填写信息。',
+  replyIn:'回复期限还剩', days:n=>n+' 天', todayDue:'今天需要回复', passed:'回复期限已过', by:'截止',
+  urgentLead:'在继续之前，我发现了一个有时限的问题。', urgentEy:'紧急',
+  urgentT:n=>n<0?'回复期限已过':n===0?'今天需要回复':n+' 天内需要回复',
+  urgentB:'信件要求在 {when}（{tzname}）前回复，即您所在时区的 {local}。',
+  courtLine:'信中还表示，对方可能不另行通知即在{court}提起诉讼。',
+  goodT:'温馨提示', goodB:'信中的期限不是法院命令，但请不要忽视。尽早咨询专业人士，您的选择会更多。',
+  findNow:'立即查找商标代理人', toSummary:'继续查看信件摘要',
+  summaryLead:'以下是您信件的主要内容。', summaryT:'您的信件解读', readByAi:'规则提取',
+  kSender:'发件人', kClient:'代表', kMark:'对方商标', kFor:'注册类别', kSign:'对方指控的标志', kClaims:'对方的主张', kWants:'对方的要求', kDeadline:'回复期限', kLaw:'引用法律',
+  regNo:'注册号 {n}', classGoods:'第 {c} 类：{g}',
+  claimsTm:'您将 {sign} 作为商标使用，侵犯了对方的注册商标（第 120 条）。',
+  claimsAcl:'您的行为构成《澳大利亚消费者法》（Australian Consumer Law）下的误导或欺骗行为（第 18 条）。',
+  tmAct:'《1995年商标法》（联邦）', acl:'《澳大利亚消费者法》',
+  checkNote:'请与原信核对。AI 可能会读错。',
+  edit:'有误？编辑', save:'保存修改', cancel:'取消', saved:'我已按您的修改更新了摘要。',
+  summaryQ:'需要我将信件内容与公开信息（例如商标注册记录）进行核对吗？',
+  yesCheck:'是，帮我核对', noThanks2:'不用了',
+  useAsk:'为了公平比较，请告诉我您销售什么。您也可以添加使用该名称的照片，例如包装或店铺招牌。',
+  sellL:'您的企业销售什么？', sellP:'例如：香薰蜡烛和香皂', photosL:'添加照片（可选）', startCheck:'开始核对',
+  userSells:'我们销售{x}。', userPhotos:'已添加 {n} 张照片。',
+  researchLead:'此原型无法查询公共登记资料。接下来的页面仅演示可调查的问题，并非独立核实。', researchT:'正在核对信息来源',
+  s1:'IP Australia 商标注册记录', s1d:'找到 {n}：{m}，第 {c} 类，已注册',
+  s2:'《1995年商标法》（联邦）', s2d:'查阅侵权条款（第 120 条）',
+  s3:'IP Australia 商标审查手册', s3d:'近似商标的比较方法',
+  s4:'发件人的公开信息', s4d:'业务领域和办公地点',
+  s5:'{client} 的产品', s5d:'对方在该商标下销售的商品',
+  s6:'比较名称和商品', s6d:'{sign} 与 {mark}',
+  researchDone:'未查询任何外部信息来源。以下比较仅供演示，必须独立核实。',
+  gateT:'查看结果之前', gateB:'以下内容仅为一般信息，不构成法律意见。它将信件内容与公开信息并列展示，并列出您可以向专业人士提出的问题。它不会判断您是否侵权，也不会告诉您应该怎么做。',
+  gateCheck:'我理解这不是法律意见', gateBtn:'查看核查结果', gateDone:'我理解这不是法律意见。',
+  findT:'核查结果', findSub:'以下仅是根据来信信息及简单文字／商品类别比较生成的演示结果，未查询外部来源。请勿据此判断是否侵权。',
+  lLetter:'信中称', lPublic:'未经核实的示例', lWhy:'为何可能重要', lAsk:'可询问专业人士',
+  tagDiff:'发现差异', tagSim:'发现相似之处', tagCheck:'值得核实',
+  g_t:'商品', g_l:'对方商标注册于第 {c} 类：{g}。', g_p:'您销售的是{s}{uc}。注册记录显示 {n} 仅注册于第 {c} 类。',
+  ucOne:'（通常属于第 {a} 类）', ucTwo:'（通常属于第 {a} 和第 {b} 类）',
+  g_w:'第 120(1) 条适用于在注册商品上的使用；第 120(2) 条适用于同类商品（goods of the same description）；第 120(3) 条适用于在澳大利亚驰名的商标（well-known marks）。',
+  g_a:'我的商品与对方的商品是否属于“同类商品”？对方商标在澳大利亚是否驰名？',
+  m_t:'两个名称', m_l:'对方称 {sign} 与 {mark}“实质相同”（substantially identical）。', m_p:'{sign} 与 {mark} 相差 {d} 个字母。',
+  m_ft:'对方可能的备用论点', m_f:'如果法院认定两个名称并非实质相同，对方很可能主张 {sign} 与 {mark} 构成“欺骗性近似”（deceptively similar）。该标准范围更宽，名称的读音也更重要。', m_f2:'对方的要求中已提到欺骗性近似的标志。',
+  m_w:'这是两项不同的标准。“实质相同”并不要求完全一致：法院会将两个商标并列比较，考虑其主要特征和整体印象。“欺骗性近似”的范围更宽：该标志是否与商标过于相似，以致可能使凭不完整记忆购物的普通消费者受骗或混淆（第 10 条）。',
+  m_a:'{sign} 与 {mark} 是否实质相同？如果不是，是否构成欺骗性近似？',
+  s_t:'发件人', s_l:'{sender}，代表 {client}（{base}）。', s_p:'信头列明的业务领域为{areas}，办公地点位于{office}。',
+  s_w:'委托外州律所很常见，仅凭这一点不能说明信件可疑。但部分知识产权信件属于诈骗，请核实发件人身份。',
+  s_a:'在您所在州的律师协会（law society）名录中核实该律所，并通过您自己查找的联系方式与其联系。',
+  c_t:'诉讼威胁', c_l:'对方称可能不另行通知即在{court}提起诉讼。',
+  c_p:'《商标法》规定，在某些情况下，受到侵权诉讼威胁的人可就无理威胁（unjustified threats）采取法律行动（第 129 条）。',
+  c_w:'这可能影响您的回应方式，但取决于具体事实。', c_a:'这封信中的威胁是否合理？',
+  optsT:'常见的后续步骤', optsSub:'处于您这种情况的人通常会考虑以下选项。哪种适合您取决于您的具体情况。',
+  o1:'要求延期或要求对方提供更多信息', o2:'回复说明您的立场', o3:'协商解决，例如设定过渡期', o4:'更改或停止使用该名称', o5:'回复前先咨询专业意见',
+  attQ:'需要帮您查找附近的注册商标代理人吗？', yesFind:'是，帮我查找',
+  pcAsk:'您的邮政编码是多少？', pcL:'邮政编码', pcP:'例如 3000', search:'搜索', pcErr:'请输入 4 位数的澳大利亚邮政编码。',
+  searching:'{pc} 位于{place}。正在搜索商标代理人名录…',
+  attLead:'以下是{place}附近的注册商标代理人。',
+  attNote:'仅按距离排序。本工具不推荐任何代理人。演示数据：正式版本将使用 Trans-Tasman IP Attorneys Board 名录。',
+  hHours:'营业时间', hPhone:'电话', hEmail:'电邮', hLangs:'语言', copy:'复制信息', sampleTag:'示例',
+  nextLead:'以下是可供您带给专业人士的摘要。', nextT:'您的后续步骤',
+  n1:'不要置之不理。请在 {when} 前回复。', n2:'低收费帮助：社区法律中心（community legal centres），以及您所在州律师协会的转介服务。', n3:'代理人可以在首次会面前阅读您的摘要。',
+  showNext:'查看后续步骤', backSummary:'继续查看信件摘要',
+  tBannerT:'AI 翻译 · TRANSLATED BY AI', tBannerB:'英文原文才是正式版本。重要内容请与律师或口译员核对。口译服务：TIS National 131 450。'
+}};
+const ZHV = {
+  'toys; toy vehicles; games and playthings':'玩具；玩具车；游戏及娱乐用品',
+  'scented candles and soaps':'香薰蜡烛和香皂', 'scented candles':'香薰蜡烛', 'candles':'蜡烛', 'soaps':'香皂',
+  'Industrial Relations':'劳资关系', 'Employment':'雇佣', 'Commercial':'商业',
+  'Fremantle WA':'西澳弗里曼特尔（Fremantle WA）', 'Albury NSW':'新州奥尔伯里（Albury NSW）',
+  'Federal Court of Australia':'澳大利亚联邦法院（Federal Court of Australia）',
+  'Melbourne VIC':'维州墨尔本', 'Sydney NSW':'新州悉尼', 'Perth WA':'西澳珀斯', 'Brisbane QLD':'昆州布里斯班', 'Adelaide SA':'南澳阿德莱德', 'Canberra ACT':'堪培拉', 'Hobart TAS':'塔州霍巴特', 'Darwin NT':'北领地达尔文'
+};
+
+/* ---------- state ---------- */
+const S = {};
+function fresh(){
+  Object.assign(S, { log:[], step:'consent', path:null, stage:1, busy:false, data:null, sells:'', sellsDraft:'', photos:[], research:[], seenSummary:false, editing:false,
+    send:{ own:null, f:{}, shots:[], theirName:'', where:'', honest:null, complex:null, tone:null, rem:[], kind:'letter', locked:false, evidence:false },
+    drafts:[] });
+}
+fresh(); S.lang = 'en';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? Math.min(ms, 120) : ms));
+function t(k, p){ let v = STR[S.lang][k] ?? STR.en[k]; if (typeof v === 'function' || Array.isArray(v)) return v; if (p) v = v.replace(/\{(\w+)\}/g, (m, x) => p[x] ?? m); return v; }
+function zh(en){ return S.lang === 'zh' && ZHV[en] ? ZHV[en] : en; }
+function daysLeft(){ const d = S.data && S.data.deadline; if (!d) return null; const diff = (d.ms - Date.now()) / 86400000; return diff < 0 ? -1 : Math.floor(diff); }
+function fmt(ms, zone, withYear){
+  try { return new Intl.DateTimeFormat(S.lang === 'zh' ? 'zh-CN' : 'en-AU', Object.assign({ weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit' }, withYear ? { year:'numeric' } : {}, zone ? { timeZone: zone } : {})).format(new Date(ms)); }
+  catch(e){ return new Date(ms).toString(); }
+}
+function deadlineText(){ const d = S.data && S.data.deadline; if (!d) return ''; return fmt(d.ms, TZ[d.tz] ? TZ[d.tz].zone : undefined, true); }
+function setStage(n){ S.stage = Math.max(S.stage, n); }
+
+/* ---------- conversation helpers ---------- */
+function push(e){ S.log.push(e); render(); }
+async function say(...entries){
+  S.busy = true; render();
+  for (const e of entries){ await sleep(e.who === 'card' ? 300 : 600); S.log.push(Object.assign({ who:'agent' }, e)); render(); }
+  S.busy = false; render();
+}
+function me(k, p, extra){ push(Object.assign({ who:'user', k, p }, extra || {})); }
+
+/* ---------- send path: letter builder ---------- */
+const TONES = ['friendly','firm','formal'];
+function suggestedTone(){ return S.send.honest ? 'friendly' : 'firm'; }
+function ph(label){ return '<span class="ph">[' + esc(label) + ']</span>'; }
+function v(key, label){ const x = (S.send.f[key] || '').trim(); return x ? esc(x) : ph(label); }
+function remedyPhrase(){
+  const r = S.send.rem, copy = S.send.own === 'copy', parts = [];
+  if (r.includes('stop')) parts.push(copy ? 'stop using my work' : 'stop using the name and logo');
+  if (r.includes('remove')) parts.push('remove related online listings');
+  if (r.includes('change')) parts.push('change your branding so it is clearly different from mine');
+  if (!parts.length) return null;
+  return parts.length === 1 ? parts[0] : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+}
+function buildDraft(kind, tone){
+  const s = S.send, copy = s.own === 'copy';
+  const their = s.theirName ? esc(s.theirName) : ph('Their business name');
+  const where = s.where ? esc(s.where.replace(/^their\b/i, 'your')) : ph('where you saw it');
+  const shots = s.shots.length ? ' Screenshots are attached.' : '';
+  const talk = s.rem.includes('talk');
+  const rp = remedyPhrase();
+  const P = x => '<p>' + x + '</p>';
+  if (kind === 'nudge'){
+    return [P('Hi ' + their + ','),
+      P('I’m ' + v('yourName', 'Your name') + ' from ' + v('yourBiz', 'Your business name') + '. I noticed ' + where + (copy ? ' uses some of my original work, ' + v('work', 'the work') + '.' : ' uses a name that looks a lot like ours, which is a registered trade mark.') + ' You may not have known, so I thought I’d reach out first.'),
+      P('Could we have a quick chat about it? You can reach me at ' + v('email', 'your email') + '.'),
+      P('Thanks,<br>' + v('yourName', 'Your name'))].join('');
+  }
+  const owns = copy
+    ? { friendly: 'I created ' + v('work', 'the work') + ' in ' + v('made', 'year') + ', and I own the copyright in that work.',
+        firm: 'I created ' + v('work', 'the work') + ' in ' + v('made', 'year') + ' and own the copyright in that work.',
+        formal: 'I am the author and copyright owner of ' + v('work', 'the work') + ', which I created in ' + v('made', 'year') + '.' }
+    : { friendly: 'We registered ' + v('mark', 'Your trade mark') + ' as a trade mark (' + v('number', 'number') + ') and have used it since ' + v('since', 'year') + '.',
+        firm: 'I own registered trade mark ' + v('number', 'number') + ' for ' + v('mark', 'Your trade mark') + ', which I have used since ' + v('since', 'year') + '.',
+        formal: 'I am the registered owner of Australian trade mark ' + v('number', 'number') + ' for ' + v('mark', 'Your trade mark') + ', which I have used in my business since ' + v('since', 'year') + '.' };
+  const concern = copy
+    ? { friendly: 'It looks like it’s being used on ' + where + ' without my permission.', firm: 'It is being used on ' + where + ' without my permission.' + shots, formal: 'I have become aware that this work is being reproduced on ' + where + ' without my permission. Copies of the relevant material are attached.' }
+    : { friendly: 'I came across ' + where + ' and noticed your name and logo look very similar to ours, so customers may think our businesses are connected.', firm: 'I’m writing about the name and logo used on ' + where + '.', formal: 'I have become aware that you are using a similar name and logo on ' + where + '. I am concerned that this may lead customers to believe our businesses are connected.' + (shots ? ' Copies of the relevant material are attached.' : '') };
+  const date = ph('date'), email = v('email', 'your email'), name = v('yourName', 'Your name');
+  if (tone === 'friendly'){
+    return [P('Hi ' + their + ' team,'),
+      P('I’m ' + name + ' from ' + v('yourBiz', 'Your business name') + '. ' + (copy ? owns.friendly + ' ' + concern.friendly : concern.friendly + ' ' + owns.friendly)),
+      P('You may not have known about this, so I wanted to get in touch directly.' + (rp ? ' Would you be willing to ' + rp + '? It would help if you could let me know by ' + date + '.' : ' Could you let me know by ' + date + ' how you’d like to sort it out?')),
+      P('If it’s easier to talk' + (talk ? ', I’m very happy to' : '') + ', I’m at ' + email + '.'),
+      P('Thanks,<br>' + name)].join('');
+  }
+  if (tone === 'formal'){
+    return [P('Dear ' + their + ','),
+      P('<b>Re: Use of ' + (copy ? v('work', 'the work') : 'a name similar to ' + v('mark', 'Your trade mark')) + '</b>'),
+      P(owns.formal), P(concern.formal),
+      P(rp ? 'I request that you ' + rp + ' by ' + date + ', and confirm in writing that you have done so.' : 'I request that you contact me by ' + date + ' to resolve this matter.'),
+      P('If you believe I have misunderstood the position, please contact me at ' + email + '.' + (talk ? ' I am open to discussing this.' : '')),
+      P('Yours faithfully,<br>' + name + '<br>' + v('yourBiz', 'Your business name'))].join('');
+  }
+  return [P('Dear ' + their + ','),
+    P(copy ? owns.firm + ' ' + concern.firm : concern.firm + ' ' + owns.firm),
+    copy ? '' : P('Your name and logo look very similar to mine, so customers may think our businesses are connected.' + shots),
+    P('I’d like to sort this out fairly.' + (rp ? ' Could you please ' + rp + ' by ' + date + ', and confirm in writing?' : ' Could you please contact me by ' + date + '?') + ' If you think I’ve misunderstood, I’m happy to talk it through: ' + email + '.'),
+    P('Kind regards,<br>' + name)].join('');
+}
+function toneLabel(tn){ return t(tn === 'friendly' ? 'tFriendly' : tn === 'formal' ? 'tFormal' : 'tFirm'); }
+function latestDraft(){ return S.drafts[S.drafts.length - 1]; }
+function draftPlain(d){ const el = document.createElement('div'); el.innerHTML = d.html.replace(/<\/p>/g, '</p>\n\n').replace(/<br>/g, '\n'); return el.textContent.replace(/\n{3,}/g, '\n\n').trim(); }
+
+/* ---------- renderers ---------- */
+function bubble(e){
+  if (e.who === 'user'){
+    const txt = e.raw != null ? esc(e.raw) : esc(t(e.k, e.p));
+    const ph = e.photos && e.photos.length ? '<div class="thumbs">' + e.photos.map(src => '<img alt="" src="' + src + '">').join('') + '</div>' : '';
+    return '<div class="msg user">' + txt + (e.k2 ? esc(t(e.k2, e.p)) : '') + ph + '</div>';
+  }
+  if (e.who === 'agent') return '<div class="msg agent"' + (e.small ? ' style="font-size:13.5px;color:var(--muted);background:transparent;border-color:transparent;padding:0 4px"' : '') + '>' + esc(t(e.k, e.p)) + '</div>';
+  return CARDS[e.kind] ? CARDS[e.kind](e) : '';
+}
+const CARDS = {
+  consent(){ return '<div class="card soft"><h3>' + I_LOCK + t('consentT') + '</h3><p>' + t('consentB') + '</p><details><summary class="linkbtn" style="display:inline">' + t('howT') + '</summary><p class="note" style="margin-top:6px;color:var(--fg)">' + t('howB') + '</p></details></div>'; },
+  ownInfo(){ return '<div class="card"><h3>' + t('ownInfoT') + '</h3><ul class="list"><li>' + t('own1') + '</li><li>' + t('own2') + '</li><li>' + t('own3') + '</li><li><b>' + t('own4') + '</b></li></ul></div>'; },
+  howCheck(){
+    const sec = (title, body) => '<div style="display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">' + title + '</b><span style="font-size:14.5px">' + body + '</span></div>';
+    return '<div class="card"><h3>' + t('checkAllT') + '</h3>' + sec(t('cTmT'), t('cTmB')) + sec(t('cCopyT'), t('cCopyB')) + sec(t('cDesT'), t('cDesB')) +
+      '<p class="note" style="color:var(--fg);font-weight:600">' + t('cName') + '</p><div><a class="btn small" href="' + LINKS.tmSearch + '" target="_blank" rel="noopener">' + t('lSearch') + '</a></div></div>';
+  },
+  evSaved(){ const n = S.send.shots.length; return '<div class="card" style="gap:8px">' + (n ? '<div class="thumbrow big">' + S.send.shots.map(s => '<img alt="" src="' + s + '">').join('') + '</div>' : '<div class="thumbrow"><span class="thumbph">' + I_IMG + '</span></div>') + '<span class="saved">' + (n ? I_CHECK + ' ' + esc(t('evSaved', { n })) : esc(t('evNone'))) + '</span></div>'; },
+  evList(){ return '<div class="card"><h3>' + t('evListT') + '</h3><ul class="list"><li>' + t('ev1') + '</li><li>' + t('ev2') + '</li><li>' + t('ev3') + '</li><li>' + t('ev4') + '</li><li>' + t('ev5') + '</li></ul></div>'; },
+  free(){ return '<div class="card"><h3>' + t('freeT') + '</h3><div class="links"><a href="' + LINKS.firstResponse + '" target="_blank" rel="noopener">' + t('lFirst') + '<span aria-hidden="true">›</span></a><a href="' + LINKS.engage + '" target="_blank" rel="noopener">' + t('lEngage') + '<span aria-hidden="true">›</span></a></div><ul class="list"><li>' + t('freeCLC') + '</li><li>' + t('freeLaw') + '</li></ul></div>'; },
+  caution(){ return '<div class="card amber"><h3>' + I_WARN + t('cautionT') + '</h3><p>' + t('cautionB') + '</p><a href="' + LINKS.firstResponse + '" target="_blank" rel="noopener" style="font-weight:700">' + t('readMore') + '</a></div>'; },
+  choose(){
+    const s = S.send, sug = suggestedTone();
+    const radio = tn => '<button type="button" class="radio' + (s.tone === tn ? ' on' : '') + '" data-act="tone" data-v="' + tn + '" aria-pressed="' + (s.tone === tn) + '"><span class="o"></span><span><b>' + toneLabel(tn) + (tn === sug ? '<span class="sugg">' + t('suggested') + '</span>' : '') + '</b><span class="d">' + t(tn === 'friendly' ? 'tFriendlyD' : tn === 'formal' ? 'tFormalD' : 'tFirmD') + '</span></span></button>';
+    const chip = (id, k) => '<button type="button" class="chipbtn' + (s.rem.includes(id) ? ' on' : '') + '" data-act="rem" data-v="' + id + '" aria-pressed="' + s.rem.includes(id) + '">' + (s.rem.includes(id) ? I_CHECK : '') + t(k) + '</button>';
+    return '<div class="card' + (s.locked ? ' locked' : '') + '" style="gap:12px"><span class="eyebrow" style="color:var(--muted)">' + t('toneT') + '</span>' + TONES.map(radio).join('') +
+      '<p style="margin-top:4px">' + t('remLead') + '</p><div class="chips">' + chip('stop', s.own === 'copy' ? 'rStopC' : 'rStop') + chip('remove', 'rRemove') + (s.own === 'copy' ? '' : chip('change', 'rChange')) + chip('talk', 'rTalk') + '</div></div>';
+  },
+  draft(e){
+    const d = S.drafts[e.i];
+    return '<div class="card" style="gap:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="font-size:15px">' + I_DOC + t(d.kind === 'nudge' ? 'nudgeT' : 'draftT') + '</h3><span class="badge">' + t('editable') + '</span></div>' +
+      (S.lang === 'zh' ? '<p class="note">' + t('zhNote') + '</p>' : '') +
+      '<div class="draft" contenteditable="true" spellcheck="true" lang="en-AU" data-draft="' + e.i + '" aria-label="Draft letter, editable">' + d.html + '</div>' +
+      '<p class="note">' + t('draftNote') + '</p><div><button type="button" class="btn small" data-act="copyDraft" data-i="' + e.i + '">' + t('copyDraft') + '</button></div></div>';
+  },
+  sendSummary(){
+    const s = S.send, d = latestDraft();
+    return '<div class="card" style="gap:6px"><h3>' + t('sumT') + '</h3><ul class="sumlist">' +
+      '<li>' + I_DOC + t('sumAns') + '<span class="tick">' + I_CHECK + '</span></li>' +
+      '<li>' + I_IMG + esc(t('sumEv', { n: s.shots.length })) + '<span class="tick">' + (s.evidence ? I_CHECK : '') + '</span></li>' +
+      '<li>' + I_DOC + esc(d ? t('sumDraft', { tone: d.kind === 'nudge' ? t('nudgeT') : toneLabel(d.tone) }) : t('sumNoDraft')) + '<span class="tick">' + (d ? I_CHECK : '') + '</span></li></ul>' +
+      '<p class="note">' + t('sumLawyer') + '</p><button type="button" class="btn primary wide" data-act="pdf">' + I_DL + t('dlPdf') + '</button>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn wide" style="flex:1" data-act="copySum">' + t('copySum') + '</button><button type="button" class="btn danger wide" style="flex:1" data-act="delete">' + t('del') + '</button></div><span class="toast" id="toast" role="status"></span></div>';
+  },
+  /* received path cards */
+  urgent(){
+    const n = daysLeft(), d = S.data; const tz = d.deadline ? TZ[d.deadline.tz] : null;
+    let body = '';
+    if (d.deadline) body += '<p>' + esc(t('urgentB', { when: deadlineText(), tzname: S.lang === 'zh' ? tz.zh : tz.en, local: fmt(d.deadline.ms) })) + '</p>';
+    if (d.court) body += '<p>' + esc(t('courtLine', { court: zh(d.court) })) + '</p>';
+    return '<div class="card crit" role="alert"><span class="eyebrow">' + t('urgentEy') + '</span><h3>' + esc(n == null ? t('goodT') : t('urgentT')(n)) + '</h3>' + body + '</div>';
+  },
+  good(){ return '<div class="card soft"><h3>' + t('goodT') + '</h3><p>' + t('goodB') + '</p></div>'; },
+  summary(){
+    const d = S.data;
+    if (S.editing) return editCard();
+    const rows = [];
+    const row = (k, html, hot) => rows.push('<dt>' + t(k) + '</dt><dd' + (hot ? ' class="hotrow"' : '') + '>' + html + '</dd>');
+    if (d.sender) row('kSender', esc(d.sender));
+    if (d.client) row('kClient', esc(d.client) + (d.clientBase ? '<span class="orig">' + esc(zh(d.clientBase)) + '</span>' : ''));
+    if (d.mark) row('kMark', esc(d.mark) + (d.number ? ', ' + esc(t('regNo', { n: d.number })) : ''));
+    if (d.cls) row('kFor', S.lang === 'zh' && ZHV[d.goods] ? esc(t('classGoods', { c: d.cls, g: ZHV[d.goods] })) + '<span class="orig">' + esc(d.goods) + '</span>' : esc(t('classGoods', { c: d.cls, g: d.goods })));
+    if (d.sign) row('kSign', esc(d.sign));
+    const claims = [];
+    if (d.laws && d.laws.some(l => l.act === 'tm')) claims.push(t('claimsTm', { sign: d.sign }));
+    if (d.laws && d.laws.some(l => l.act === 'acl')) claims.push(t('claimsAcl'));
+    if (claims.length) row('kClaims', claims.map(esc).join('<br>'));
+    if (d.demands && d.demands.length) row('kWants', '<ul>' + d.demands.map(x => '<li>' + demandHtml(x) + '</li>').join('') + '</ul>');
+    if (d.deadline) row('kDeadline', '<span class="hot">' + esc(deadlineText()) + '</span>', true);
+    if (d.laws && d.laws.length) row('kLaw', esc(d.laws.map(l => l.act === 'tm' ? t('tmAct') + (S.lang === 'zh' ? ' 第 ' + l.secs.join('、') + ' 条' : ' ss ' + l.secs.join(', ')) : t('acl') + (S.lang === 'zh' ? ' 第 18 条' : ' s 18')).join('; ')));
+    return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3>' + t('summaryT') + '</h3><span class="chip check">' + t('readByAi') + '</span></div><dl class="facts">' + rows.join('') + '</dl>' +
+      '<p class="note">' + t('checkNote') + '</p><div><button type="button" class="btn small" data-act="edit">' + t('edit') + '</button></div></div>';
+  },
+  research(){
+    const d = S.data;
+    const items = [[t('s1'), t('s1d', { n: d.number || '—', m: d.mark, c: d.cls || '?' })], [t('s2'), t('s2d')], [t('s3'), t('s3d')], [t('s4'), t('s4d')], [t('s5', { client: d.client || '' }), t('s5d')], [t('s6'), t('s6d', { sign: d.sign, mark: d.mark })]];
+    const done = S.research.filter(x => x === 'done').length;
+    return '<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h3>' + t('researchT') + '</h3><span class="note" style="font-variant-numeric:tabular-nums">' + done + ' / 6</span></div>' +
+      '<div class="bar">' + items.map((_, i) => '<i class="' + (S.research[i] === 'done' ? 'on' : '') + '"></i>').join('') + '</div><ul class="checks">' +
+      items.map((it, i) => { const st = S.research[i] || 'todo'; return '<li><span class="dot ' + st + '" role="img" aria-label="' + st + '">' + (st === 'done' ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-fg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + '</span><span class="t"><b>' + esc(it[0]) + '</b><span>' + esc(it[1]) + '</span></span></li>'; }).join('') + '</ul></div>';
+  },
+  gate(){ return '<div class="card amber"><h3>' + I_WARN + t('gateT') + '</h3><p>' + t('gateB') + '</p></div>'; },
+  findings(){
+    const d = S.data, f = [];
+    const sells = S.sells || S.sellsDraft || 'scented candles and soaps';
+    const uc = userClasses(sells);
+    const ucText = uc.length === 1 ? t('ucOne', { a: uc[0] }) : uc.length === 2 ? t('ucTwo', { a: uc[0], b: uc[1] }) : '';
+    const block = (tag, cls, title, letter, pub, why, ask, extra, mid) => '<div class="finding"><span class="chip ' + cls + '">' + tag + '</span><h3 style="margin:0;font-size:16px">' + esc(title) + '</h3>' +
+      '<div class="fgrid"><div><b>' + t('lLetter') + '</b>' + esc(letter) + '</div><div><b>' + t('lPublic') + '</b>' + esc(pub) + '</div></div>' +
+      '<div class="why"><b>' + t('lWhy') + '</b>' + esc(why) + '</div>' + (mid || '') + '<div class="ask"><b>' + t('lAsk') + '</b>' + esc(ask) + (extra || '') + '</div></div>';
+    const fallback = '<div class="why fallback"><b>' + t('m_ft') + '</b>' + esc(t('m_f', { sign: d.sign, mark: d.mark }) + (d.claimsDeceptively ? t('m_f2') : '')) + '</div>';
+    if (d.cls && d.goods){ const known = uc.length > 0, differs = known && !uc.includes(d.cls);
+      f.push(block(!known ? t('tagCheck') : differs ? t('tagDiff') : t('tagSim'), !known ? 'check' : differs ? 'diff' : 'sim', t('g_t'), t('g_l', { c: d.cls, g: zh(d.goods) }), t('g_p', { s: zh(sells), uc: ucText, c: d.cls, n: d.number }), t('g_w'), t('g_a'))); }
+    f.push(block(t('tagSim'), 'sim', t('m_t'), t('m_l', { sign: d.sign, mark: d.mark }), t('m_p', { sign: d.sign, mark: d.mark, d: d.distance ?? '?', dl: d.distance === 1 ? 'one letter' : (d.distance ?? '?') + ' letters' }), t('m_w'), t('m_a', { sign: d.sign, mark: d.mark }), '', fallback));
+    if (d.sender){ const areas = S.lang === 'zh' ? (d.areas || []).map(zh).join('、') : (d.areas || []).join(', ').toLowerCase();
+      f.push(block(t('tagCheck'), 'check', t('s_t'), t('s_l', { sender: d.sender, client: d.client || '', base: zh(d.clientBase || '') }), t('s_p', { areas, office: zh(d.office || '') }), t('s_w'), t('s_a'), '<br><a href="' + LINKS.scams + '" target="_blank" rel="noopener" style="font-weight:700">' + t('lScams') + '</a>')); }
+    if (d.court) f.push(block(t('tagCheck'), 'check', t('c_t'), t('c_l', { court: zh(d.court) }), t('c_p'), t('c_w'), t('c_a')));
+    return '<div class="card" style="gap:12px"><h3>' + t('findT') + '</h3><p class="note">' + t('findSub') + '</p>' + f.join('') + '</div>';
+  },
+  options(){ return '<div class="card soft"><h3>' + t('optsT') + '</h3><p class="note" style="color:var(--fg)">' + t('optsSub') + '</p><ul class="list"><li>' + t('o1') + '</li><li>' + t('o2') + '</li><li>' + t('o3') + '</li><li>' + t('o4') + '</li><li>' + t('o5') + '</li></ul></div>'; },
+  attorneys(){
+    const list = ATTS.map((a, i) => '<div class="att"><div class="att-h"><b>' + esc(a.name) + '<span class="sample">' + t('sampleTag') + '</span></b><span>' + a.km + ' km</span></div><span style="font-size:14px">' + esc(a.firm) + '</span><dl>' +
+      '<dt>' + t('hHours') + '</dt><dd>' + esc(S.lang === 'zh' ? a.hoursZh : a.hours) + '</dd><dt>' + t('hPhone') + '</dt><dd>' + esc(a.phone) + '</dd><dt>' + t('hEmail') + '</dt><dd>' + esc(a.email) + '</dd><dt>' + t('hLangs') + '</dt><dd>' + esc(S.lang === 'zh' ? a.langsZh : a.langs) + '</dd></dl>' +
+      '<div><button type="button" class="btn small" data-act="copyAtt" data-i="' + i + '">' + t('copy') + '</button></div></div>').join('');
+    return '<div class="card"><p class="note">' + t('attNote') + '</p>' + list + '</div>';
+  },
+  next(){
+    const when = S.data && S.data.deadline ? deadlineText() : '';
+    return '<div class="card"><h3>' + t('nextT') + '</h3><ul class="list">' + (when ? '<li><b style="color:var(--crit-ink)">' + esc(t('n1', { when })) + '</b></li>' : '') + '<li>' + t('n3') + '</li><li>' + t('n2') + '</li></ul>' +
+      '<button type="button" class="btn primary wide" data-act="pdf">' + I_DL + t('dlPdf') + '</button><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn wide" style="flex:1" data-act="copySum">' + t('copySum') + '</button><button type="button" class="btn danger wide" style="flex:1" data-act="delete">' + t('del') + '</button></div><span class="toast" id="toast" role="status"></span></div>';
+  }
+};
+function userClasses(s){
+  s = (s || '').toLowerCase(); const c = [];
+  if (/soap|cosmetic|skin ?care|perfume/.test(s)) c.push('3');
+  if (/candle/.test(s)) c.push('4');
+  if (/cloth|apparel|shirt|shoe/.test(s)) c.push('25');
+  if (/toy|game/.test(s)) c.push('28');
+  if (/chocolate|dessert|cake|coffee|confection|biscuit/.test(s)) c.push('30');
+  return c;
+}
+function demandHtml(en){
+  if (S.lang !== 'zh') return esc(en);
+  const d = S.data, sign = d.sign, mark = d.mark; let z = null;
+  const days = (en.match(/within (\d+) days/) || [])[1];
+  if (/^immediately cease|^cease/i.test(en)) z = '立即停止使用 ' + sign + ' 标志，以及任何与 ' + mark + ' 商标实质相同或欺骗性近似的标志';
+  else if (/remove/i.test(en)) z = (days ? '自信件日期起 ' + days + ' 天内，' : '') + '从所有产品、包装、招牌、网站和社交媒体中移除 ' + sign + ' 标志';
+  else if (/deliver up|destroy/i.test(en)) z = '交出或销毁所有带有 ' + sign + ' 标志的库存和材料，并提供销毁证明';
+  else if (/account of/i.test(en)) z = '提供自开始使用以来所有带有 ' + sign + ' 标志的产品的销售记录';
+  else if (/undertaking/i.test(en)) z = '签署并交回随附的承诺书（undertaking）';
+  return z ? esc(z) + '<span class="orig">' + esc(en) + '</span>' : esc(en);
+}
+function editCard(){
+  const d = S.data;
+  const f = (id, k, v) => '<label class="field" for="e-' + id + '">' + t(k) + '<input id="e-' + id + '" value="' + esc(v || '') + '"></label>';
+  return '<div class="card"><h3>' + t('summaryT') + '</h3><div class="formgrid">' + f('sender', 'fSender', d.sender) + f('client', 'fClient', d.client) + f('mark', 'fTheirMark', d.mark) + f('number', 'fNumber2', d.number) + f('sign', 'fSign', d.sign) + f('cls', 'kFor', d.cls) + '</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" data-act="saveEdit">' + t('save') + '</button><button type="button" class="btn" data-act="cancelEdit">' + t('cancel') + '</button></div></div>';
+}
+const ATTS = [
+  { name:'Jacob J.', firm:'Sample IP Attorneys, Collins Street', km:'0.6', hours:'Mon to Thu, 9 am to 5 pm', hoursZh:'周一至周四，上午 9 点至下午 5 点', phone:'(03) 5550 1101', email:'jacob@example.com', langs:'English', langsZh:'英语' },
+  { name:'Mei L.', firm:'Example Trade Mark Services, Southbank', km:'1.4', hours:'Mon to Fri, 8.30 am to 5.30 pm', hoursZh:'周一至周五，上午 8:30 至下午 5:30', phone:'(03) 5550 1102', email:'mei@example.com', langs:'English, Mandarin, Cantonese', langsZh:'英语、普通话、粤语' },
+  { name:'Tom W.', firm:'Demo Brand Law, Carlton', km:'2.3', hours:'Mon to Fri, 9 am to 5 pm', hoursZh:'周一至周五，上午 9 点至下午 5 点', phone:'(03) 5550 1103', email:'tom@example.com', langs:'English, Vietnamese', langsZh:'英语、越南语' }
+];
+const PLACES = { '3000':'Melbourne VIC','2000':'Sydney NSW','6000':'Perth WA','4000':'Brisbane QLD','5000':'Adelaide SA','2600':'Canberra ACT','7000':'Hobart TAS','0800':'Darwin NT','2640':'Albury NSW','6160':'Fremantle WA' };
+
+/* ---------- composer ---------- */
+function composerHtml(){
+  if (S.busy) return '';
+  const b = (act, k, cls) => '<button type="button" class="btn ' + (cls || '') + '" data-act="' + act + '">' + t(k) + '</button>';
+  const row = (...x) => '<div class="row">' + x.join('') + '</div>';
+  const fld = (id, k, type) => '<label class="field" for="' + id + '">' + t(k) + '<input id="' + id + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc((S.send.f[id.replace(/^f-/, '')]) || '') + '"></label>';
+  switch (S.step){
+    case 'consent': return row(b('consentYes', 'yesCont', 'primary'), b('consentNo', 'noThanks'));
+    case 'path': return row(b('pathRecv', 'optReceived', 'primary'), b('pathSend', 'optSend', 'primary'));
+    /* send */
+    case 'own': return '<div class="row"><button type="button" class="linkbtn" data-act="ownWhat">' + t('ownWhat') + '</button></div>' + row(b('ownTm', 'ownTm'), b('ownCopy', 'ownCopy'), b('ownUnsure', 'ownUnsure'), b('ownNo', 'ownNo'));
+    case 'ownForm': {
+      const copy = S.send.own === 'copy';
+      return '<form id="own-form" style="display:flex;flex-direction:column;gap:10px"><div class="formgrid">' + fld('f-yourName', 'fYourName') + fld('f-yourBiz', 'fYourBiz') +
+        (copy ? fld('f-work', 'fWork') + fld('f-made', 'fMade') : fld('f-mark', 'fMark') + fld('f-number', 'fNumber') + fld('f-since', 'fSince')) + fld('f-email', 'fEmail', 'email') + '</div>' +
+        row('<button class="btn primary" type="submit">' + t('cont') + '</button>', b('ownSkip', 'skip'), b('demoOwn', 'demoFill', 'quiet')) + '</form>';
+    }
+    case 'notOwn': return row(b('unsureTm', 'unsureTm'), b('unsureCopy', 'unsureCopy'), b('restart', 'restart'));
+    case 'ownNo': return row(b('checkOwn', 'checkOwn'), b('restart', 'restart'));
+    case 'ev': return row(b('evYes', 'yes'), b('evNo', 'no'));
+    case 'evForm': return '<form id="ev-form" style="display:flex;flex-direction:column;gap:10px"><div class="formgrid"><label class="field" for="f-their">' + t('fTheir') + '<input id="f-their" value="' + esc(S.send.theirName) + '"></label><label class="field" for="f-where">' + t('fWhere') + '<input id="f-where" value="' + esc(S.send.where) + '"></label></div>' +
+      '<label class="drop" id="shot-drop" for="f-shots">' + I_IMG + '<b>' + t('addShots') + '</b><span>' + t('shotsHint') + '</span><input id="f-shots" type="file" accept="image/*" multiple class="sr"></label>' +
+      '<div class="thumbrow" id="shot-preview"></div><span class="saved" id="shot-count"></span>' +
+      row('<button class="btn primary" type="submit">' + t('cont') + '</button>', b('demoShots', 'demoShots', 'quiet')) + '</form>';
+    case 'noEv': return row(b('haveEv', 'haveEvNow', 'primary'), b('restart', 'restart'));
+    case 'honest': return row(b('honestYes', 'yes'), b('honestNo', 'no'));
+    case 'nudgeQ': return row(b('nudgeYes', 'yesDraftIt', 'primary'), b('nudgeNo', 'noCont'));
+    case 'complex': return row(b('complexYes', 'yes'), b('complexNo', 'no'));
+    case 'complexYes': return row(b('getSummary', 'getSummary', 'primary'), b('draftAnyway', 'draftAnyway'));
+    case 'caution': return row(b('gotIt', 'gotIt', 'primary wide'));
+    case 'choose': return '<p class="note" id="rem-err" style="margin:0;color:var(--crit-ink)" hidden>' + t('needRem') + '</p>' + row(b('create', 'createDraft', 'primary wide'));
+    case 'happy': return row(b('happyYes', 'yes'), b('happyNo', 'noChange'));
+    case 'change': return row(b('chTone', 'chTone'), b('chRem', 'chRem'), b('chText', 'chText'));
+    case 'editing': return row(b('doneEdit', 'doneEditing', 'primary'));
+    case 'more': return row(b('moreYes', 'yes'), b('moreNo', 'noDone'));
+    /* received */
+    case 'upload': return '<label class="drop" id="drop" for="letter-file"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg><b>' + t('dropT') + '</b><span>' + t('dropH') + '</span><input id="letter-file" type="file" accept=".docx,.txt,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/pdf" class="sr"></label>' + row(b('demo', 'useDemo'), b('manual', 'cantUpload'));
+    case 'manual': return '<form id="manual-form" class="formgrid">' + ['sender:fSender','client:fClient','mark:fTheirMark','number:fNumber2','sign:fSign'].map(x => { const [id, k] = x.split(':'); return '<label class="field" for="m-' + id + '">' + t(k) + '<input id="m-' + id + '" required></label>'; }).join('') +
+      '<label class="field" for="m-deadline">' + t('fDeadline') + '<input id="m-deadline" type="date"></label><div style="grid-column:1/-1"><button class="btn primary" type="submit">' + t('cont') + '</button></div></form>';
+    case 'urgent': return row(b('findNow', 'findNow', 'primary'), b('toSummary', 'toSummary'));
+    case 'summaryQ': return S.editing ? '' : row(b('yesCheck', 'yesCheck', 'primary'), b('noCheck', 'noThanks2'));
+    case 'use': return '<form id="use-form" style="display:flex;flex-direction:column;gap:10px"><label class="field" for="sells">' + t('sellL') + '<input id="sells" placeholder="' + esc(t('sellP')) + '" value="' + esc(S.sellsDraft || '') + '"></label>' +
+      '<label class="field" for="photos">' + t('photosL') + '<input id="photos" type="file" accept="image/*" multiple style="min-height:auto;padding:8px"></label><div><button class="btn primary" type="submit">' + t('startCheck') + '</button></div></form>';
+    case 'gate': return '<label class="gate" for="ack"><input type="checkbox" id="ack"><span>' + t('gateCheck') + '</span></label>' + row('<button type="button" class="btn primary" data-act="gate" id="gate-btn" disabled>' + t('gateBtn') + '</button>');
+    case 'attQ': return row(b('yesFind', 'yesFind', 'primary'), b('noFind', 'noThanks2'));
+    case 'postcode': return '<form id="pc-form" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><label class="field" for="pc" style="flex:1 1 160px">' + t('pcL') + '<input id="pc" inputmode="numeric" maxlength="4" placeholder="' + t('pcP') + '" autocomplete="postal-code"></label><button class="btn primary" type="submit">' + t('search') + '</button><p class="note" id="pc-err" style="width:100%;margin:0;color:var(--crit-ink)" hidden>' + t('pcErr') + '</p></form>';
+    case 'attDone': return row(b('next', 'showNext', 'primary'), S.seenSummary ? '' : b('toSummary', 'backSummary'));
+    case 'next': return row(b('moreYes', 'restart'));
+    case 'end': return row(b('restart', 'restart'));
+  }
+  return '';
+}
+
+/* ---------- panel ---------- */
+function stageLabels(){ return t(S.path === 'send' ? 'stagesSend' : S.path === 'recv' ? 'stagesRecv' : 'stages0'); }
+function panelHtml(){
+  let h = '';
+  if (S.path === 'recv' && S.data){
+    const d = S.data, n = daysLeft();
+    if (d.deadline){ const hot = n <= 14; h += '<div class="dl ' + (hot ? 'hot' : 'calm') + '"><span class="eyebrow">' + (n < 0 ? t('passed') : n === 0 ? t('todayDue') : t('replyIn')) + '</span>' + (n > 0 ? '<span class="big">' + t('days')(n) + '</span>' : '') + '<span>' + t('by') + ' ' + esc(deadlineText()) + '</span></div>'; }
+    const kv = (k, v) => v ? '<div><dt>' + t(k) + '</dt><dd>' + esc(v) + '</dd></div>' : '';
+    h += '<dl class="kv">' + kv('kSender', d.sender) + kv('kClient', d.client) + kv('kMark', d.mark ? d.mark + (d.number ? ' (' + d.number + ')' : '') : '') + kv('kSign', d.sign) + '</dl>';
+  } else if (S.path === 'send' && (S.send.own || S.send.theirName)){
+    const s = S.send, kv = (k, v) => v ? '<div><dt>' + t(k) + '</dt><dd>' + esc(v) + '</dd></div>' : '';
+    const own = s.own === 'copy' ? s.f.work : (s.f.mark ? s.f.mark + (s.f.number ? ' (' + s.f.number + ')' : '') : '');
+    h += '<dl class="kv">' + kv(s.own === 'copy' ? 'pWork' : 'pYourMark', own) + kv('pTheir', s.theirName) + (s.evidence ? kv('pEvidence', t('pShots', { n: s.shots.length })) : '') + kv('pTone', latestDraft() ? (latestDraft().kind === 'nudge' ? t('nudgeT') : toneLabel(latestDraft().tone)) : '') + '</dl>';
+  } else h += '<p class="note" style="margin:0">' + t('caseEmpty') + '</p>';
+  const L = stageLabels();
+  h += '<ol class="steps">' + L.map((s, i) => { const st = S.stage > i + 1 ? 'done' : S.stage === i + 1 ? 'now' : ''; return '<li class="' + st + '"><i>' + (st === 'done' ? '✓' : i + 1) + '</i>' + esc(s) + '</li>'; }).join('') + '</ol>';
+  return h;
+}
+function panelFull(){
+  return '<div class="pcard"><h2>' + t('caseTitle') + '</h2>' + panelHtml() + '</div><div class="pnote"><b>' + t('noticeT') + '</b><span>' + t('noticeB') + '</span></div>' +
+    '<div class="pcard"><h2>' + t('helpT') + '</h2><div class="plinks"><a href="' + LINKS.firstResponse + '" target="_blank" rel="noopener">' + t('lFirst') + '</a><a href="' + LINKS.tmSearch + '" target="_blank" rel="noopener">' + t('lSearch') + '</a><a href="' + LINKS.scams + '" target="_blank" rel="noopener">' + t('lScams') + '</a><a href="' + LINKS.engage + '" target="_blank" rel="noopener">' + t('lEngage') + '</a></div></div>';
+}
+
+/* ---------- render ---------- */
+let lastLen = 0;
+function render(){
+  document.documentElement.lang = S.lang === 'zh' ? 'zh-Hans' : 'en-AU';
+  $('t-name').textContent = t('name'); $('t-sub').textContent = t('sub'); $('t-lang').textContent = t('lang'); $('restart').textContent = t('restart'); $('lang').value = S.lang;
+  const L = stageLabels();
+  $('prog').innerHTML = '<div class="segs" aria-hidden="true">' + [1,2,3,4].map(i => '<i class="' + (i <= S.stage ? 'on' : '') + '"></i>').join('') + '</div><span>' + esc(t('stageOf', { n: S.stage, l: L[S.stage - 1] })) + '</span>';
+  const log = $('log');
+  let html = '<div class="day">' + t('today') + '</div>';
+  if (S.lang === 'zh') html += '<div class="tbanner" role="note"><span class="eyebrow">' + t('tBannerT') + '</span><span>' + t('tBannerB') + '</span></div>';
+  for (let i = 0; i < S.log.length; i++){
+    const e = S.log[i];
+    if (e.who === 'user'){ html += bubble(e); continue; }
+    const prev = S.log[i - 1];
+    const first = !prev || prev.who === 'user';
+    const isCard = e.who === 'card';
+    html += '<div class="ra' + (isCard ? ' card-row' : '') + '">' + (first && !isCard ? '<div class="av sm" aria-hidden="true">G</div>' : '<div class="sp"></div>') + bubble(e) + '</div>';
+  }
+  if (S.busy) html += '<div class="ra"><div class="av sm" aria-hidden="true">G</div><div class="typing" aria-label="Typing"><i></i><i></i><i></i></div></div>';
+  log.innerHTML = html;
+  if (S.log.length !== lastLen || S.busy){ log.scrollTop = log.scrollHeight; lastLen = S.log.length; }
+  const comp = $('composer');
+  const key = S.step + '|' + S.busy + '|' + S.lang + '|' + S.editing;
+  if (comp.dataset.key !== key){
+    comp.innerHTML = composerHtml() + '<p class="foot">' + t('foot') + '</p>';
+    comp.dataset.key = key; wireComposer();
+  }
+  $('panel').innerHTML = panelFull();
+  $('cb-title').textContent = t('caseTitle');
+  const n = S.path === 'recv' ? daysLeft() : null;
+  $('cb-chip').innerHTML = n == null ? '' : '<span class="chip ' + (n <= 14 ? '' : 'diff') + '" style="' + (n <= 14 ? 'color:var(--crit-ink);background:var(--crit-bg);border-color:var(--crit)' : '') + '">' + esc(n < 0 ? t('passed') : n === 0 ? t('todayDue') : t('replyIn') + ' ' + t('days')(n)) + '</span>';
+  $('cb-inner').innerHTML = panelHtml() + '<div class="pnote"><b>' + t('noticeT') + '</b><span>' + t('noticeB') + '</span></div>';
+}
+
+/* ---------- flow: start ---------- */
+async function start(){ fresh(); render(); await say({ k:'hi' }, { who:'card', kind:'consent' }, { k:'consentQ' }); S.step = 'consent'; render(); }
+
+/* ---------- flow: send ---------- */
+async function startSend(){ S.path = 'send'; S.stage = 2; await say({ k:'sIntro' }, { k:'ownQ' }); S.step = 'own'; render(); }
+async function askEvidence(){ await say({ k:'evQ' }); S.step = 'ev'; render(); }
+async function askHonest(){ await say({ k:'honestQ' }); S.step = 'honest'; render(); }
+async function askComplex(){ await say({ k:'complexQ' }); S.step = 'complex'; render(); }
+async function showCaution(){ await say({ k:'cautionLead' }, { who:'card', kind:'caution' }); S.step = 'caution'; render(); }
+async function showChoose(){
+  setStage(3); S.send.locked = false;
+  if (!S.send.tone) S.send.tone = suggestedTone();
+  if (!S.send.rem.length) S.send.rem = S.send.own === 'copy' ? ['stop', 'remove'] : ['stop', 'remove'];
+  await say({ k:'toneLead' }, { who:'card', kind:'choose' });
+  S.step = 'choose'; render();
+}
+async function makeDraft(kind){
+  setStage(3);
+  const tone = kind === 'nudge' ? 'friendly' : S.send.tone;
+  S.drafts.push({ kind, tone, html: buildDraft(kind, tone) });
+  await say({ k: kind === 'nudge' ? 'nudgeDraftLead' : 'draftLead' }, { who:'card', kind:'draft', i: S.drafts.length - 1 }, { k:'happyQ' });
+  S.step = 'happy'; render();
+}
+async function sendSummary(){ S.stage = 4; await say({ k:'ready' }, { who:'card', kind:'sendSummary' }, { k:'moreQ' }); S.step = 'more'; render(); }
+
+/* ---------- flow: received ---------- */
+async function goUpload(){ S.path = 'recv'; S.stage = 2; await say({ k:'uploadAsk' }); S.step = 'upload'; render(); }
+async function processText(text){
+  S.step = 'reading'; S.busy = true; render();
+  await sleep(500); S.log.push({ who:'agent', k:'reading' }); render(); await sleep(1300);
+  const d = parseLetter(text); S.busy = false;
+  if (!d.ok){ S.step = 'upload'; await say({ k:'readFail' }); render(); return; }
+  S.data = d;
+  S.sellsDraft = d.yourGoods ? d.yourGoods.replace(/,? and related products/i, '').replace(/, (\w+)$/, ' and $1') : '';
+  afterRead();
+}
+async function afterRead(){
+  const n = daysLeft();
+  if ((n != null && n <= 14) || S.data.court){ await say({ k:'urgentLead' }, { who:'card', kind:'urgent' }, { who:'card', kind:'good' }); S.step = 'urgent'; render(); }
+  else showSummary();
+}
+async function showSummary(){ S.seenSummary = true; await say({ k:'summaryLead' }, { who:'card', kind:'summary' }, { k:'summaryQ' }); S.step = 'summaryQ'; render(); }
+async function research(){
+  S.stage = 3; S.research = ['todo','todo','todo','todo','todo','todo'];
+  await say({ k:'researchLead' }, { who:'card', kind:'research' });
+  S.step = 'researching'; S.busy = true; render();
+  // No network lookup takes place in this educational prototype. Do not mark sources as checked.
+  S.busy = false;
+  await say({ k:'researchDone' }, { who:'card', kind:'gate' }); S.step = 'gate'; render();
+}
+async function showFindings(){ me('gateDone'); await say({ who:'card', kind:'findings' }, { who:'card', kind:'options' }, { k:'attQ' }); S.step = 'attQ'; render(); }
+async function askPostcode(){ S.stage = 4; await say({ k:'pcAsk' }); S.step = 'postcode'; render(); }
+async function findAtt(pc){
+  const place = PLACES[pc] || (S.lang === 'zh' ? pc + ' 地区' : 'the ' + pc + ' area');
+  me(null, null, { raw: pc });
+  await say({ k:'searching', p:{ pc, place: zh(place) } }); await sleep(800);
+  await say({ k:'attLead', p:{ place: zh(place) } }, { who:'card', kind:'attorneys' });
+  S.step = 'attDone'; render();
+}
+async function nextSteps(){ S.stage = 4; await say({ k:'nextLead' }, { who:'card', kind:'next' }, { k:'moreQ' }); S.step = 'more'; render(); }
+
+/* ---------- summaries ---------- */
+function summaryLines(){
+  const L = ['Guided Support Tool: case summary', 'General information only, not legal advice.', 'Prepared ' + new Intl.DateTimeFormat('en-AU', { day:'numeric', month:'long', year:'numeric' }).format(new Date()), ''];
+  if (S.path === 'send'){
+    const s = S.send, f = s.f;
+    L.push('MATTER: I am thinking of sending a letter', '');
+    L.push('Ownership: ' + (s.own === 'copy' ? 'Own original work (copyright)' : 'Registered trade mark'));
+    if (s.own === 'copy'){ if (f.work) L.push('Work: ' + f.work); if (f.made) L.push('Created: ' + f.made); }
+    else { if (f.mark) L.push('Trade mark: ' + f.mark); if (f.number) L.push('Registration number: ' + f.number); if (f.since) L.push('Used since: ' + f.since); }
+    if (f.yourBiz) L.push('My business: ' + f.yourBiz);
+    if (s.theirName) L.push('Other party: ' + s.theirName);
+    if (s.where) L.push('Where I saw it: ' + s.where);
+    L.push('Evidence: ' + (s.evidence ? s.shots.length + ' screenshot(s)' : 'not yet gathered'));
+    if (s.honest != null) L.push('Could be an honest mistake: ' + (s.honest ? 'Yes' : 'No'));
+    if (s.complex != null) L.push('Complex or high stakes: ' + (s.complex ? 'Yes' : 'No'));
+    const d = latestDraft();
+    if (d){ L.push('', 'DRAFT (' + (d.kind === 'nudge' ? 'short friendly message' : STR.en[d.tone === 'friendly' ? 'tFriendly' : d.tone === 'formal' ? 'tFormal' : 'tFirm'] + ' tone') + '). Not sent.', '', draftPlain(d)); }
+  } else if (S.data){
+    const d = S.data;
+    L.push('MATTER: I received a cease-and-desist letter', '');
+    if (d.sender) L.push('Sent by: ' + d.sender);
+    if (d.client) L.push('On behalf of: ' + d.client + (d.clientBase ? ' (' + d.clientBase + ')' : ''));
+    if (d.mark) L.push('Their trade mark: ' + d.mark + (d.number ? ', registration no. ' + d.number : '') + (d.cls ? ', class ' + d.cls + ' (' + d.goods + ')' : ''));
+    if (d.sign) L.push('What they object to: ' + d.sign);
+    if (d.demands){ L.push('What they want:'); d.demands.forEach(x => L.push(' - ' + x)); }
+    if (d.deadline) L.push('Reply by: ' + new Intl.DateTimeFormat('en-AU', { timeZone: TZ[d.deadline.tz].zone, weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'numeric', minute:'2-digit' }).format(new Date(d.deadline.ms)) + ' (' + d.deadline.tz + ')');
+    if (S.sells) L.push('Our business sells: ' + S.sells);
+    L.push('', 'Questions for a professional:', ' - Are our goods "of the same description" as theirs (s 120(2))? Is their mark well known in Australia (s 120(3))?', ' - Is ' + d.sign + ' substantially identical with ' + d.mark + '? If not, is it deceptively similar?', ' - Are the threats in this letter justified (s 129)?');
+  }
+  return L;
+}
+function makePdf(){
+  const toast = $('toast');
+  try {
+    const J = window.jspdf && window.jspdf.jsPDF; if (!J) throw new Error('pdf library not loaded');
+    const doc = new J({ unit:'pt', format:'a4' }); const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(); let y = 56;
+    doc.setFillColor(13, 91, 91); doc.circle(62, 50, 14, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('G', 57.5, 55);
+    doc.setTextColor(19, 41, 42); y = 56;
+    summaryLines().forEach((line, i) => {
+      const bold = i === 0 || /^(MATTER|DRAFT|Questions)/.test(line);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(i === 0 ? 16 : 11);
+      const x = i === 0 ? 86 : 48;
+      const wrapped = doc.splitTextToSize(line.replace(/[‘’]/g, "'").replace(/[“”]/g, '"') || ' ', W - x - 48);
+      wrapped.forEach(w => { if (y > H - 56){ doc.addPage(); y = 56; } doc.text(w, x, y); y += i === 0 ? 22 : 15; });
+      if (i === 0) y += 6;
+    });
+    doc.save('case-summary.pdf');
+    if (toast) toast.textContent = t('pdfMade');
+  } catch(e){ if (toast) toast.textContent = t('copySum') + ' ↑'; }
+}
+async function copyText(txt, btn, label){
+  try { await navigator.clipboard.writeText(txt); btn.textContent = label; }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.append(ta); ta.select(); try { document.execCommand('copy'); btn.textContent = label; } catch(_){} ta.remove(); }
+}
+
+/* ---------- events ---------- */
+async function handleFile(file){
+  if (!file) return;
+  me('uploaded', { name: file.name });
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')){ await say({ k:'pdfMsg' }); S.step = 'upload'; render(); return; }
+  try {
+    let text = '';
+    if (name.endsWith('.docx')){ if (!window.mammoth) throw new Error('reader not loaded'); text = (await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value; }
+    else text = await file.text();
+    processText(text);
+  } catch(e){ await say({ k:'readFail' }); S.step = 'upload'; render(); }
+}
+function showShots(){
+  const pv = $('shot-preview'), cnt = $('shot-count'); if (!pv) return;
+  const n = S.send.shots.length;
+  pv.innerHTML = S.send.shots.map(s => '<img alt="" src="' + s + '">').join('');
+  cnt.innerHTML = n ? I_CHECK + ' ' + esc(t('evSaved', { n })) : '';
+}
+const readImgs = files =>Promise.all([...files].slice(0, 6).map(f => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.onerror = () => r(null); fr.readAsDataURL(f); }))).then(a => a.filter(Boolean));
+function wireComposer(){
+  const fi = $('letter-file');
+  if (fi){
+    fi.addEventListener('change', () => handleFile(fi.files[0]));
+    const drop = $('drop');
+    ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) handleFile(f); });
+  }
+  const of = $('own-form');
+  if (of) of.addEventListener('submit', e => {
+    e.preventDefault();
+    of.querySelectorAll('input').forEach(i => { S.send.f[i.id.replace(/^f-/, '')] = i.value.trim(); });
+    me('detailsSaid'); askEvidence();
+  });
+  const ef = $('ev-form');
+  if (ef){
+    const shotIn = $('f-shots'), drop = $('shot-drop');
+    let pending = null;
+    const addFiles = files => { const imgs = [...files].filter(f => /^image\//.test(f.type)); if (!imgs.length) return; pending = readImgs(imgs).then(a => { S.send.shots = S.send.shots.concat(a).slice(0, 6); showShots(); pending = null; }); };
+    shotIn.addEventListener('change', () => addFiles(shotIn.files));
+    ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => { if (e.dataTransfer) addFiles(e.dataTransfer.files); });
+    ef.addEventListener('paste', e => { if (e.clipboardData && e.clipboardData.files.length) addFiles(e.clipboardData.files); });
+    showShots();
+    ef.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (pending) await pending;
+      S.send.theirName = $('f-their').value.trim(); S.send.where = $('f-where').value.trim(); S.send.evidence = true;
+      me('evSaid', null, { photos: S.send.shots });
+      await say({ who:'card', kind:'evSaved' }); askHonest();
+    });
+  }
+  const mf = $('manual-form');
+  if (mf) mf.addEventListener('submit', e => {
+    e.preventDefault();
+    const v2 = id => $('m-' + id).value.trim();
+    const d = { sender: v2('sender'), client: v2('client'), mark: v2('mark').toUpperCase(), number: v2('number'), sign: v2('sign').toUpperCase(), laws: [], demands: [], ok: true };
+    const dd = v2('deadline');
+    if (dd){ const [y, m, day] = dd.split('-').map(Number); d.deadline = { ms: Date.UTC(y, m - 1, day, 17, 0) - 11 * 3600000, tz: 'AEDT', text: dd }; }
+    d.distance = lev(d.mark, d.sign); S.data = d; me('manualSent'); afterRead();
+  });
+  const uf = $('use-form');
+  if (uf) uf.addEventListener('submit', async e => {
+    e.preventDefault();
+    S.sells = $('sells').value.trim() || S.sellsDraft || '';
+    S.photos = await readImgs($('photos').files || []);
+    me('userSells', { x: zh(S.sells), n: S.photos.length }, { photos: S.photos, k2: S.photos.length ? 'userPhotos' : null });
+    research();
+  });
+  const ack = $('ack'); if (ack) ack.addEventListener('change', () => { $('gate-btn').disabled = !ack.checked; });
+  const pf = $('pc-form');
+  if (pf) pf.addEventListener('submit', e => { e.preventDefault(); const pc = $('pc').value.trim(); if (!/^\d{4}$/.test(pc)){ $('pc-err').hidden = false; $('pc').setAttribute('aria-invalid', 'true'); return; } findAtt(pc); });
+}
+document.addEventListener('input', e => {
+  const el = e.target.closest && e.target.closest('[data-draft]');
+  if (el){ const d = S.drafts[+el.dataset.draft]; if (d) d.html = el.innerHTML; }
+});
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, s = S.send;
+  const ALWAYS = ['pdf', 'copySum', 'copyDraft', 'copyAtt', 'tone', 'rem', 'edit', 'cancelEdit'];
+  if (S.busy && !ALWAYS.includes(a)) return;
+  switch (a){
+    case 'consentYes': me('yesCont'); await say({ k:'thanks' }); S.step = 'path'; render(); break;
+    case 'consentNo': me('noThanks'); await say({ k:'declined' }); S.step = 'end'; render(); break;
+    case 'pathRecv': me('optReceived'); goUpload(); break;
+    case 'pathSend': me('optSend'); startSend(); break;
+    case 'ownWhat': me('ownWhat'); await say({ who:'card', kind:'ownInfo' }, { k:'ownQ' }); render(); break;
+    case 'ownTm': s.own = 'tm'; me('ownTm'); await say({ k:'tmAsk' }); S.step = 'ownForm'; render(); break;
+    case 'ownCopy': s.own = 'copy'; me('ownCopy'); await say({ k:'workAsk' }); S.step = 'ownForm'; render(); break;
+    case 'ownUnsure': me('ownUnsure'); await say({ k:'unsureLead' }, { who:'card', kind:'howCheck' }); S.step = 'notOwn'; render(); break;
+    case 'checkOwn': me('checkOwn'); await say({ k:'unsureLead' }, { who:'card', kind:'howCheck' }); S.step = 'notOwn'; render(); break;
+    case 'ownNo': me('ownNo'); await say({ k:'noLead' }, { who:'card', kind:'free' }); S.step = 'ownNo'; render(); break;
+    case 'unsureTm': s.own = 'tm'; me('unsureTm'); await say({ k:'tmAsk' }); S.step = 'ownForm'; render(); break;
+    case 'unsureCopy': s.own = 'copy'; me('unsureCopy'); await say({ k:'workAsk' }); S.step = 'ownForm'; render(); break;
+    case 'ownSkip': me('detailsSkipped'); askEvidence(); break;
+    case 'evYes': me('yes'); await say({ k:'evAsk' }); S.step = 'evForm'; render(); break;
+    case 'demoOwn': { const d = DEMO_SEND[s.own === 'copy' ? 'copy' : 'tm']; Object.keys(d).forEach(k => { const i = $('f-' + k); if (i) i.value = d[k]; }); } break;
+    case 'demoShots': { S.send.shots = demoShots(); const th = $('f-their'), wh = $('f-where'); if (th && !th.value) th.value = DEMO_SEND.their; if (wh && !wh.value) wh.value = DEMO_SEND.where; showShots(); } break;
+    case 'evNo': me('no'); await say({ k:'noEvLead' }, { who:'card', kind:'evList' }); S.step = 'noEv'; render(); break;
+    case 'haveEv': me('haveEvNow'); await say({ k:'evAsk' }); S.step = 'evForm'; render(); break;
+    case 'honestYes': s.honest = true; me('yes'); await say({ k:'nudgeLead' }); S.step = 'nudgeQ'; render(); break;
+    case 'honestNo': s.honest = false; me('no'); askComplex(); break;
+    case 'nudgeYes': me('yesDraftIt'); s.complex = false; makeDraft('nudge'); break;
+    case 'nudgeNo': me('noCont'); askComplex(); break;
+    case 'complexYes': s.complex = true; me('yes'); await say({ k:'complexLead' }, { who:'card', kind:'free' }); S.step = 'complexYes'; render(); break;
+    case 'complexNo': s.complex = false; me('no'); showCaution(); break;
+    case 'getSummary': me('getSummary'); sendSummary(); break;
+    case 'draftAnyway': me('draftAnyway'); showCaution(); break;
+    case 'gotIt': me('gotIt'); showChoose(); break;
+    case 'tone': if (s.locked) break; s.tone = el.dataset.v; render(); break;
+    case 'rem': if (s.locked) break; { const v3 = el.dataset.v; s.rem = s.rem.includes(v3) ? s.rem.filter(x => x !== v3) : s.rem.concat(v3); render(); } break;
+    case 'create': if (!s.rem.length){ const er = $('rem-err'); if (er) er.hidden = false; break; } s.locked = true; me('createDraft'); makeDraft('letter'); break;
+    case 'copyDraft': { const d = S.drafts[+el.dataset.i]; const live = document.querySelector('[data-draft="' + el.dataset.i + '"]'); if (live) d.html = live.innerHTML; copyText(draftPlain(d), el, t('copied')); } break;
+    case 'happyYes': me('yes'); sendSummary(); break;
+    case 'happyNo': me('noChange'); await say({ k:'changeQ' }); S.step = 'change'; render(); break;
+    case 'chTone': case 'chRem': me(a); showChoose(); break;
+    case 'chText': me('chText'); await say({ k:'editHint' }); S.step = 'editing'; render(); { const last = document.querySelector('[data-draft="' + (S.drafts.length - 1) + '"]'); if (last){ last.focus(); last.scrollIntoView({ block:'center' }); } } break;
+    case 'doneEdit': me('doneEditing'); await say({ k:'happyQ' }); S.step = 'happy'; render(); break;
+    case 'pdf': makePdf(); break;
+    case 'copySum': copyText(summaryLines().join('\n'), el, t('copiedSum')); break;
+    case 'delete': { const lang = S.lang; fresh(); S.lang = lang; await say({ k:'deleted' }, { k:'bye' }); S.step = 'end'; render(); } break;
+    case 'moreYes': { const lang = S.lang, keepLog = S.log; me('yes'); fresh(); S.lang = lang; S.log = keepLog; S.stage = 1; await say({ k:'thanks' }); S.step = 'path'; render(); } break;
+    case 'moreNo': me('noDone'); await say({ k:'bye' }); S.step = 'end'; render(); break;
+    case 'restart': start(); break;
+    /* received */
+    case 'demo': me('useDemo'); processText(DEMO_TEXT); break;
+    case 'manual': me('cantUpload'); await say({ k:'manualAsk' }); S.step = 'manual'; render(); break;
+    case 'findNow': me('findNow'); askPostcode(); break;
+    case 'toSummary': me('toSummary'); showSummary(); break;
+    case 'edit': S.editing = true; render(); break;
+    case 'cancelEdit': S.editing = false; render(); break;
+    case 'saveEdit': { const v4 = id => $('e-' + id).value.trim(); Object.assign(S.data, { sender: v4('sender'), client: v4('client'), mark: v4('mark').toUpperCase(), number: v4('number'), sign: v4('sign').toUpperCase(), cls: v4('cls') }); S.data.distance = lev(S.data.mark, S.data.sign); S.editing = false; await say({ k:'saved' }); } break;
+    case 'yesCheck': me('yesCheck'); S.stage = 3; await say({ k:'useAsk' }); S.step = 'use'; render(); break;
+    case 'noCheck': me('noThanks2'); nextSteps(); break;
+    case 'gate': showFindings(); break;
+    case 'yesFind': me('yesFind'); askPostcode(); break;
+    case 'noFind': me('noThanks2'); nextSteps(); break;
+    case 'next': me('showNext'); nextSteps(); break;
+    case 'copyAtt': { const x = ATTS[+el.dataset.i]; copyText(x.name + ', ' + x.firm + '\n' + x.phone + '\n' + x.email, el, t('copied')); } break;
+  }
+});
+$('restart').addEventListener('click', () => { if (!S.busy) start(); });
+$('lang').addEventListener('change', e => { S.lang = e.target.value; try { localStorage.setItem('gst-lang', S.lang); } catch(_){} render(); });
+try { const l = localStorage.getItem('gst-lang'); if (l === 'zh' || l === 'en') S.lang = l; } catch(_){}
+render();
+start();
+</script>
+</body>
+</html>
